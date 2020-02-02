@@ -38,6 +38,7 @@ using System.Windows.Media.Imaging;
 using xivModdingFramework.General.Enums;
 using xivModdingFramework.Items.DataContainers;
 using xivModdingFramework.Materials.FileTypes;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using xivModdingFramework.Textures.DataContainers;
 using xivModdingFramework.Textures.Enums;
@@ -48,8 +49,7 @@ namespace FFXIV_TexTools.ViewModels
 {
     public class ModListViewModel : INotifyPropertyChanged
     {
-        private readonly DirectoryInfo _modListDirectory;
-        private readonly DirectoryInfo _gameDirectory;
+        private readonly Modding _modding;
         private string _modToggleText = UIStrings.Enable_Disable;
         private Visibility _listVisibility = Visibility.Visible, _infoGridVisibility = Visibility.Collapsed;
         private string _modPackTitle, _modPackModAuthorLabel, _modPackModCountLabel, _modPackModVersionLabel, _modPackContentList, _progressText;
@@ -59,10 +59,9 @@ namespace FFXIV_TexTools.ViewModels
         private IProgress<(int current, int total)> progress;
 
 
-        public ModListViewModel()
+        public ModListViewModel(Modding modding)
         {
-            _gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            _modListDirectory = new DirectoryInfo(Path.Combine(_gameDirectory.Parent.Parent.FullName, XivStrings.ModlistFilePath));
+            _modding = modding;
 
             progress = new Progress<(int current, int total)>((result) =>
             {
@@ -93,9 +92,9 @@ namespace FFXIV_TexTools.ViewModels
         {
             Categories = new ObservableCollection<Category>();
 
-            return Task.Run(() =>
+            return Task.Run(() => 
             {
-                var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+                var modList = _modding.GetModList();
 
                 if (modList == null) return;
 
@@ -182,7 +181,7 @@ namespace FFXIV_TexTools.ViewModels
 
             return Task.Run(() =>
             {
-                var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+                var modList = _modding.GetModList();
 
                 var modPackCatDict = new Dictionary<string, Category>();
 
@@ -469,8 +468,8 @@ namespace FFXIV_TexTools.ViewModels
                 var selectedItem = category.Item as XivGenericItemModel;
                 if (selectedItem == null) return;
 
-                var mtrl = new Mtrl(_gameDirectory, selectedItem.DataFile, GetLanguage());
-                var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+                var mtrl = new Mtrl(_modding.GameDirectory, selectedItem.DataFile, GetLanguage());
+                var modList = _modding.GetModList();
 
                 var modItems = new List<Mod>();
 
@@ -510,12 +509,12 @@ namespace FFXIV_TexTools.ViewModels
 
                 if (modItems.Count > 10)
                 {
-                    tex = new Tex(_gameDirectory, selectedItem.DataFile);
+                    tex = new Tex(_modding.GameDirectory, selectedItem.DataFile);
                     await tex.GetIndexFileDictionary();
                 }
                 else
                 {
-                    tex = new Tex(_gameDirectory);
+                    tex = new Tex(_modding.GameDirectory);
                 }
 
                 var modNum = 0;
@@ -856,7 +855,7 @@ namespace FFXIV_TexTools.ViewModels
             ProgressValue = 0;
             ProgressText = string.Empty;
 
-            var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+            var modList = _modding.GetModList();
             List<Mod> modPackModList = null;
 
             if (category.Name.Equals(UIStrings.Standalone_Non_ModPack))
@@ -933,7 +932,7 @@ namespace FFXIV_TexTools.ViewModels
         /// <param name="category">The Category object for the item</param>
         public void RemoveItem(ModListModel item, Category category)
         {
-            var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+            var modList = _modding.GetModList();
 
             var remainingList = (from items in modList.Mods
                                 where items.name == item.ModItem.name

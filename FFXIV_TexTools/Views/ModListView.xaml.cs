@@ -39,11 +39,14 @@ namespace FFXIV_TexTools.Views
     /// </summary>
     public partial class ModListView
     {
+        private readonly Modding _modding;
         private CancellationTokenSource _cts;
 
-        public ModListView()
+        public ModListView(Modding modding)
         {
+            _modding = modding;
             InitializeComponent();
+            DataContext = new ModListViewModel(modding);
         }
 
         /// <summary>
@@ -112,21 +115,18 @@ namespace FFXIV_TexTools.Views
         /// </summary>
         private async void modToggleButton_Click(object sender, RoutedEventArgs e)
         {
-            var gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            var modding = new Modding(gameDirectory);
-
             if ((ModListTreeView.SelectedItem as Category).ParentCategory.Name.Equals("ModPacks"))
             {
                 var selectedItem = (ModListTreeView.SelectedItem as Category);
 
                 if ((DataContext as ModListViewModel).ModToggleText == FFXIV_TexTools.Resources.UIStrings.Enable)
                 {
-                    await modding.ToggleModPackStatus(selectedItem.Name, true);
+                    await _modding.ToggleModPackStatus(selectedItem.Name, true);
                     (DataContext as ModListViewModel).ModToggleText = FFXIV_TexTools.Resources.UIStrings.Disable;
                 }
                 else
                 {
-                    await modding.ToggleModPackStatus(selectedItem.Name, false);
+                    await _modding.ToggleModPackStatus(selectedItem.Name, false);
                     (DataContext as ModListViewModel).ModToggleText = FFXIV_TexTools.Resources.UIStrings.Enable;
                 }
 
@@ -138,7 +138,7 @@ namespace FFXIV_TexTools.Views
                 {
                     if (selectedModItem.ModItem.enabled)
                     {
-                        await modding.ToggleModStatus(selectedModItem.ModItem.fullPath, false);
+                        await _modding.ToggleModStatus(selectedModItem.ModItem.fullPath, false);
                         (DataContext as ModListViewModel).ModToggleText = FFXIV_TexTools.Resources.UIStrings.Enable;
                         selectedModItem.ActiveBorder = Brushes.Red;
                         selectedModItem.Active = Brushes.Gray;
@@ -147,7 +147,7 @@ namespace FFXIV_TexTools.Views
                     }
                     else
                     {
-                        await modding.ToggleModStatus(selectedModItem.ModItem.fullPath, true);
+                        await _modding.ToggleModStatus(selectedModItem.ModItem.fullPath, true);
                         (DataContext as ModListViewModel).ModToggleText = FFXIV_TexTools.Resources.UIStrings.Disable;
                         selectedModItem.ActiveBorder = Brushes.Green;
                         selectedModItem.Active = Brushes.Transparent;
@@ -163,8 +163,6 @@ namespace FFXIV_TexTools.Views
         /// </summary>
         private async void modDeleteButton_Click(object sender, RoutedEventArgs e)
         {
-            var gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            var modding = new Modding(gameDirectory);
 
             if ((ModListTreeView.SelectedItem as Category).ParentCategory.Name.Equals("ModPacks"))
             {
@@ -175,7 +173,7 @@ namespace FFXIV_TexTools.Views
                 {
                     var progress = await this.ShowProgressAsync(UIMessages.ModPack_Delete, UIMessages.PleaseStandByMessage);
 
-                    await modding.DeleteModPack((ModListTreeView.SelectedItem as Category).Name);
+                    await _modding.DeleteModPack((ModListTreeView.SelectedItem as Category).Name);
                     (DataContext as ModListViewModel).RemoveModPack();
 
                     await progress.CloseAsync();
@@ -189,7 +187,7 @@ namespace FFXIV_TexTools.Views
 
                 foreach (var selectedModItem in selectedItems)
                 {
-                    await modding.DeleteMod(selectedModItem.ModItem.fullPath);
+                    await _modding.DeleteMod(selectedModItem.ModItem.fullPath);
                     (DataContext as ModListViewModel).RemoveItem(selectedModItem, (Category)ModListTreeView.SelectedItem);
                 }
             }

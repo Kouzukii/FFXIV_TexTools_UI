@@ -53,6 +53,7 @@ namespace FFXIV_TexTools
     {
         private SysTimer.Timer searchTimer = new SysTimer.Timer(300);
         private string _startupArgs;
+        public static Modding Modding;
 
         public MainWindow(string[] args)
         {
@@ -72,6 +73,8 @@ namespace FFXIV_TexTools
             CheckForSettingsUpdate();
 
             var fileVersion = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
+
+            Modding = new Modding(new DirectoryInfo(Settings.Default.FFXIV_Directory), new DirectoryInfo(Settings.Default.ModPack_Directory));
 
             if (args != null && args.Length > 0)
             {
@@ -188,18 +191,13 @@ namespace FFXIV_TexTools
 
         private async void OnlyImport()
         {
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
-
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (Modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage, UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             else
             {
-                var modPackDirectory = new DirectoryInfo(Settings.Default.ModPack_Directory);
-
-                await ImportModpack(new DirectoryInfo(_startupArgs), modPackDirectory, false, true);
+                await ImportModpack(new DirectoryInfo(_startupArgs), false, true);
             }
 
             Application.Current.Shutdown();
@@ -366,7 +364,7 @@ namespace FFXIV_TexTools
         /// </summary>
         private void Menu_ModList_Click(object sender, RoutedEventArgs e)
         {
-            var modListView = new ModListView {Owner = this};
+            var modListView = new ModListView(Modding) {Owner = this};
             modListView.Show();
         }
 
@@ -450,22 +448,19 @@ namespace FFXIV_TexTools
         /// <param name="path">The path to the modpack</param>
         /// <param name="silent">If the modpack wizard should be shown or the modpack should just be imported without any user interaction</param>
         /// <returns></returns>
-        private async Task<int> ImportModpack(DirectoryInfo path, DirectoryInfo modPackDirectory, bool silent = false, bool messageInImport = false)
+        private async Task<int> ImportModpack(DirectoryInfo path, bool silent = false, bool messageInImport = false)
         {
             var importError = false;
             
             try
             {
-                var ttmp = new TTMP(modPackDirectory, XivStrings.TexTools);
+                var ttmp = new TTMP(Modding.ModPackDirectory, XivStrings.TexTools);
                 var ttmpData = await ttmp.GetModPackJsonData(path);
 
                 if (ttmpData.ModPackJson.TTMPVersion.Contains("w"))
                 {
 
-                    var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-                    var index = new Index(gameDirectory);
-
-                    if (index.IsIndexLocked(XivDataFile._0A_Exd))
+                    if (Modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
                     {
                         FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage, UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
 
