@@ -44,8 +44,8 @@ namespace FFXIV_TexTools.ViewModels
 {
     public class MainViewModel : INotifyPropertyChanged
     {
-        private DirectoryInfo _gameDirectory;
         private readonly MainWindow _mainWindow;
+        private readonly Modding _modding;
 
         private ObservableCollection<Category> _categories = new ObservableCollection<Category>();
 
@@ -53,13 +53,13 @@ namespace FFXIV_TexTools.ViewModels
         private string _dxVersionText = $"DX: {Properties.Settings.Default.DX_Version}";
         private int _progressValue;
         private Visibility _progressBarVisible, _progressLabelVisible;
-        private Index _index;
         private System.Windows.Forms.IWin32Window _win32Window;
         private ProgressDialogController _progressController;
 
-        public MainViewModel(MainWindow mainWindow)
+        public MainViewModel(MainWindow mainWindow, Modding modding)
         {
             _mainWindow = mainWindow;
+            _modding = modding;
             _win32Window = new WindowWrapper(new WindowInteropHelper(_mainWindow).Handle);
 
             try
@@ -75,8 +75,6 @@ namespace FFXIV_TexTools.ViewModels
         private async void Initialize()
         {
             SetDirectories(true);
-            _gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            _index = new Index(_gameDirectory);
 
             ProgressLabel = "Checking for old installs...";
             CheckForOldModList();
@@ -147,12 +145,9 @@ namespace FFXIV_TexTools.ViewModels
                             UIMessages.OldTexToolsFoundMessage, UIMessages.OldModListFoundTitle,
                             MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
                     {
-                        var modding = new Modding(_gameDirectory);
-
-                        var dat = new Dat(_gameDirectory);
                         var error = false;
 
-                        if (_index.IsIndexLocked(XivDataFile._0A_Exd))
+                        if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
                         {
                             FlexibleMessageBox.Show(_win32Window, UIMessages.ModListIndexLockedErrorMessage,
                                 UIMessages.ModListDisableFailedTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -162,7 +157,7 @@ namespace FFXIV_TexTools.ViewModels
                         {
                             try
                             {
-                                await modding.DisableOldModList(oldModListFileDirectory);
+                                await _modding.DisableOldModList(oldModListFileDirectory);
                             }
                             catch (Exception ex)
                             {
@@ -181,7 +176,7 @@ namespace FFXIV_TexTools.ViewModels
                             // Delete modded dat files
                             foreach (var xivDataFile in (XivDataFile[])Enum.GetValues(typeof(XivDataFile)))
                             {
-                                var datFiles = await dat.GetModdedDatList(xivDataFile);
+                                var datFiles = await _modding.Dat.GetModdedDatList(xivDataFile);
 
                                 foreach (var datFile in datFiles)
                                 {
@@ -205,15 +200,14 @@ namespace FFXIV_TexTools.ViewModels
         private async Task CheckIndexFiles()
         {
             var xivDataFiles = new XivDataFile[] { XivDataFile._0A_Exd, XivDataFile._01_Bgcommon, XivDataFile._04_Chara, XivDataFile._06_Ui };
-            var problemChecker = new ProblemChecker(_gameDirectory);
 
             foreach (var xivDataFile in xivDataFiles)
             {
-                var errorFound = await problemChecker.CheckIndexDatCounts(xivDataFile);
+                var errorFound = await _modding.ProblemChecker.CheckIndexDatCounts(xivDataFile);
 
                 if (errorFound)
                 {
-                    await problemChecker.RepairIndexDatCounts(xivDataFile);
+                    await _modding.ProblemChecker.RepairIndexDatCounts(xivDataFile);
                 }
             }
         }
@@ -297,8 +291,7 @@ namespace FFXIV_TexTools.ViewModels
 
                 SetModPackDirectory();
 
-                var modding = new Modding(new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory));
-                modding.CreateModlist();
+                _modding.CreateModlist();
             }
             else
             {
@@ -407,14 +400,13 @@ namespace FFXIV_TexTools.ViewModels
                 var applicationVersion = FileVersionInfo
                     .GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
 
-                Version ffxivVersion = null;
+                Version ffxivVersion;
                 var needsNewBackup = false;
                 var backupMessage = "";
 
-                var modding = new Modding(_gameDirectory);
                 var backupDirectory = new DirectoryInfo(Properties.Settings.Default.Backup_Directory);
 
-                var versionFile = $"{_gameDirectory.Parent.Parent.FullName}\\ffxivgame.ver";
+                var versionFile = $"{_modding.GameDirectory.Parent.Parent.FullName}\\ffxivgame.ver";
 
                 if (File.Exists(versionFile))
                 {
@@ -469,7 +461,7 @@ namespace FFXIV_TexTools.ViewModels
                     if (FlexibleMessageBox.Show(_win32Window, backupMessage, UIMessages.CreateBackupTitle, MessageBoxButtons.YesNo,
                             MessageBoxIcon.Warning) == DialogResult.Yes)
                     {
-                        if (_index.IsIndexLocked(XivDataFile._0A_Exd))
+                        if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
                         {
                             FlexibleMessageBox.Show(_win32Window, UIMessages.IndexLockedBackupFailedMessage,
                                 UIMessages.BackupFailedTitle, MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -479,7 +471,7 @@ namespace FFXIV_TexTools.ViewModels
                         try
                         {
                             // Toggle off all mods
-                            await modding.ToggleAllMods(false);
+                            await _modding.ToggleAllMods(false);
                         }
                         catch (Exception ex)
                         {
@@ -492,9 +484,9 @@ namespace FFXIV_TexTools.ViewModels
                         {
                             try
                             {
-                                File.Copy($"{_gameDirectory.FullName}\\{xivDataFile.GetDataFileName()}.win32.index",
+                                File.Copy($"{_modding.GameDirectory.FullName}\\{xivDataFile.GetDataFileName()}.win32.index",
                                     $"{backupDirectory}\\{xivDataFile.GetDataFileName()}.win32.index", true);
-                                File.Copy($"{_gameDirectory.FullName}\\{xivDataFile.GetDataFileName()}.win32.index2",
+                                File.Copy($"{_modding.GameDirectory.FullName}\\{xivDataFile.GetDataFileName()}.win32.index2",
                                     $"{backupDirectory}\\{xivDataFile.GetDataFileName()}.win32.index2", true);
                             }
                             catch (Exception e)
@@ -522,7 +514,7 @@ namespace FFXIV_TexTools.ViewModels
             Categories.Add(new Category{Name = XivStrings.UI, Categories = new ObservableCollection<Category>(), CategoryList = new List<string>() });
             Categories.Add(new Category{Name = XivStrings.Housing, Categories = new ObservableCollection<Category>(), CategoryList = new List<string>() });
 
-            var itemList = new ItemsList(_gameDirectory);
+            var itemList = new ItemsList(_modding);
 
             foreach (var categoryOrder in _categoryOrderList)
             {
@@ -817,7 +809,7 @@ namespace FFXIV_TexTools.ViewModels
         /// <param name="obj"></param>
         private async void EnableAllMods(object obj)
         {
-            if (_index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage, UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
 
@@ -830,8 +822,7 @@ namespace FFXIV_TexTools.ViewModels
             if (FlexibleMessageBox.Show(
                     UIMessages.EnableAllModsMessage, UIMessages.EnablingModsTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                var modding = new Modding(_gameDirectory);
-                await modding.ToggleAllMods(true, progressIndicator);
+                await _modding.ToggleAllMods(true, progressIndicator);
 
                 await _progressController.CloseAsync();
 
@@ -848,7 +839,7 @@ namespace FFXIV_TexTools.ViewModels
         /// </summary>
         private async void DisableAllMods(object obj)
         {
-            if (_index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage, UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
 
@@ -861,8 +852,7 @@ namespace FFXIV_TexTools.ViewModels
             if (FlexibleMessageBox.Show(
                     UIMessages.DisableAllModsMessage, UIMessages.DisableAllModsTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
-                var modding = new Modding(_gameDirectory);
-                await modding.ToggleAllMods(false, progressIndicator);
+                await _modding.ToggleAllMods(false, progressIndicator);
 
                 await _progressController.CloseAsync();
 

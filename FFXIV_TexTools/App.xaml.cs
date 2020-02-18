@@ -26,13 +26,9 @@ namespace FFXIV_TexTools
 
             ThemeManager.ChangeAppStyle(Application.Current, ThemeManager.GetAccent(appStyle.Item2.Name), ThemeManager.GetAppTheme(Settings.Default.Application_Theme));
 
-            AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
-
-            Dispatcher.UnhandledException += DispatcherOnUnhandledException;
-
-            Application.Current.DispatcherUnhandledException += CurrentOnDispatcherUnhandledException;
-
-            TaskScheduler.UnobservedTaskException += TaskSchedulerOnUnobservedTaskException;
+            AppDomain.CurrentDomain.UnhandledException += (sender, args) => ReportException(args.ExceptionObject);
+            Dispatcher.UnhandledException += (sender, args) => ReportException(args.Exception);
+            TaskScheduler.UnobservedTaskException += (sender, args) => ReportException(args.Exception);
 
             base.OnStartup(e);
 
@@ -40,7 +36,7 @@ namespace FFXIV_TexTools
             mainWindow.Show();
         }
 
-        private void TaskSchedulerOnUnobservedTaskException(object sender, UnobservedTaskExceptionEventArgs e)
+        private void ReportException(object exception)
         {
             var ver = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
 
@@ -49,70 +45,14 @@ namespace FFXIV_TexTools
             var errorText = "TexTools ran into an error.\n\n" +
                             "Please submit a bug report with the following information.\n " +
                             lineBreak +
-                            e.Exception +
+                            exception +
                             lineBreak + "\n" +
                             "Copy to clipboard?";
 
-            if (FlexibleMessageBox.Show(errorText, "Crash Report " + ver, MessageBoxButtons.YesNo, MessageBoxIcon.Error) == DialogResult.Yes)
+            if (FlexibleMessageBox.Show(errorText, "Crash Report " + ver, MessageBoxButtons.YesNo, MessageBoxIcon.Error) ==
+                DialogResult.Yes)
             {
-                Clipboard.SetText(e.Exception.ToString());
-            }
-        }
-
-        private void CurrentOnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-        {
-            var ver = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
-
-            const string lineBreak = "\n======================================================\n";
-
-            var errorText = "TexTools ran into an error.\n\n" +
-                            "Please submit a bug report with the following information.\n " +
-                            lineBreak +
-                            e.Exception +
-                            lineBreak + "\n" +
-                            "Copy to clipboard?";
-
-            if (FlexibleMessageBox.Show(errorText, "Crash Report " + ver, MessageBoxButtons.YesNo, MessageBoxIcon.Error) == DialogResult.Yes)
-            {
-                Clipboard.SetText(e.Exception.ToString());
-            }
-        }
-
-        private void DispatcherOnUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
-        {
-            var ver = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
-
-            const string lineBreak = "\n======================================================\n";
-
-            var errorText = "TexTools ran into an error.\n\n" +
-                            "Please submit a bug report with the following information.\n " +
-                            lineBreak +
-                            e.Exception +
-                            lineBreak + "\n" +
-                            "Copy to clipboard?";
-
-            if (FlexibleMessageBox.Show(errorText, "Crash Report " + ver, MessageBoxButtons.YesNo, MessageBoxIcon.Error) == DialogResult.Yes)
-            {
-                Clipboard.SetText(e.Exception.ToString());
-            }
-        }
-
-        private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
-        {
-            var ver = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
-
-            const string lineBreak = "\n======================================================\n";
-
-            var errorText = "TexTools ran into an error.\n\n" +
-                            "Please submit a bug report with the following information.\n " +
-                            lineBreak +
-                            e.ExceptionObject +
-                            lineBreak + "\n" +
-                            "Copy to clipboard?";
-
-            if (FlexibleMessageBox.Show(errorText, "Crash Report " + ver, MessageBoxButtons.YesNo, MessageBoxIcon.Error) == DialogResult.Yes)
-            {
-                Clipboard.SetText(e.ExceptionObject.ToString());
+                Clipboard.SetText(exception.ToString());
             }
         }
     }

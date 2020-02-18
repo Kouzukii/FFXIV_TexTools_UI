@@ -21,16 +21,17 @@ using System.Threading.Tasks;
 using xivModdingFramework.General.Enums;
 using xivModdingFramework.Items.Categories;
 using xivModdingFramework.Items.DataContainers;
+using xivModdingFramework.Mods;
 
 namespace FFXIV_TexTools.Models
 {
     public class ItemsList
     {
-        private readonly DirectoryInfo _gameDirectory;
+        private readonly Modding _modding;
 
-        public ItemsList(DirectoryInfo gameDirectory)
+        public ItemsList(Modding modding) 
         {
-            _gameDirectory = gameDirectory;
+            _modding = modding;
         }
 
         /// <summary>
@@ -39,7 +40,7 @@ namespace FFXIV_TexTools.Models
         /// <returns>A list containing gear data</returns>
         public async Task<List<XivGear>> GetGearList()
         {
-            var gear = new Gear(_gameDirectory, GetLanguage());
+            var gear = new Gear(_modding, GetLanguage());
 
             return await gear.GetGearList();
         }
@@ -50,7 +51,7 @@ namespace FFXIV_TexTools.Models
         /// <returns>A list containing character data</returns>
         public async Task<List<XivCharacter>> GetCharacterList()
         {
-            var character = new Character(_gameDirectory, GetLanguage());
+            var character = new Character(_modding, GetLanguage());
 
             return await character.GetCharacterList();
         }
@@ -61,7 +62,7 @@ namespace FFXIV_TexTools.Models
         /// <returns>A tuple containing lists of all companion data</returns>
         public async Task<(List<XivMinion> MinionList, List<XivMount> MountList, List<XivPet> PetList)> GetCompanionList()
         {
-            var companions = new Companions(_gameDirectory, GetLanguage());
+            var companions = new Companions(_modding, GetLanguage());
 
             return (await companions.GetMinionList(), await companions.GetMountList(), await companions.GetPetList());
         }
@@ -72,7 +73,7 @@ namespace FFXIV_TexTools.Models
         /// <returns>A list containing UI data</returns>
         public async Task<IEnumerable<XivUi>> GetUIList()
         {
-            var ui = new UI(_gameDirectory, GetLanguage());
+            var ui = new UI(_modding, GetLanguage());
 
             var uiMasterList = (await ui.GetActionList()).Concat(await ui.GetLoadingImageList()).Concat(await ui.GetMapList())
                 .Concat(await ui.GetMapSymbolList()).Concat(await ui.GetOnlineStatusList()).Concat(await ui.GetStatusList())
@@ -87,7 +88,7 @@ namespace FFXIV_TexTools.Models
         /// <returns>A list containing furniture data</returns>
         public async Task<List<XivFurniture>> GetHousingList()
         {
-            var housing = new Housing(_gameDirectory, GetLanguage());
+            var housing = new Housing(_modding, GetLanguage());
 
             return await housing.GetFurnitureList();
         }

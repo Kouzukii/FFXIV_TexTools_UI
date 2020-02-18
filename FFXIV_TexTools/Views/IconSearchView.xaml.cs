@@ -15,6 +15,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using FFXIV_TexTools.ViewModels;
+using xivModdingFramework.Mods;
 
 namespace FFXIV_TexTools.Views
 {
@@ -23,11 +24,11 @@ namespace FFXIV_TexTools.Views
     /// </summary>
     public partial class IconSearchView
     {
-        public IconSearchView(MainWindow mainWindow)
+        public IconSearchView(MainWindow mainWindow, Modding modding)
         {
             InitializeComponent();
 
-            this.DataContext = new IconSearchViewModel(mainWindow);
+            this.DataContext = new IconSearchViewModel(mainWindow, modding);
         }
     }
 }

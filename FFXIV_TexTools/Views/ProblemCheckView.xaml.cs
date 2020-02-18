@@ -30,6 +30,7 @@ using System.Windows.Forms;
 using System.Windows.Media;
 using xivModdingFramework.General.Enums;
 using xivModdingFramework.Helpers;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using xivModdingFramework.SqPack.FileTypes;
 using Application = System.Windows.Application;
@@ -41,14 +42,14 @@ namespace FFXIV_TexTools.Views
     /// </summary>
     public partial class ProblemCheckView
     {
-        private ProblemChecker _problemChecker;
-        private DirectoryInfo _gameDirectory;
+        private readonly Modding _modding;
         private List<XivDataFile> _indexDatRepairList = new List<XivDataFile>();
         private string textColor = "Black";
         private CancellationTokenSource cts = new CancellationTokenSource();
 
-        public ProblemCheckView()
+        public ProblemCheckView(Modding modding)
         {
+            _modding = modding;
             InitializeComponent();
 
             var appStyle = ThemeManager.DetectAppStyle(Application.Current);
@@ -57,17 +58,11 @@ namespace FFXIV_TexTools.Views
                 textColor = "White";
             }
 
-            _gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-
-            _problemChecker = new ProblemChecker(_gameDirectory);
-
             RunChecks();
         }
 
         private async void RunChecks()
         {
-            var index = new Index(_gameDirectory);
-
             IProgress<(int current, int total)> progress = new Progress<(int current, int total)>((update) =>
             {
                 ProgressBar.Value = (((float) update.current / (float) update.total) * 100);
@@ -81,7 +76,7 @@ namespace FFXIV_TexTools.Views
             if (await CheckIndexDatCounts())
             {
                 AddText($"\n{UIStrings.ProblemCheck_ErrorsFound}\n", "Blue");
-                if (!index.IsIndexLocked(XivDataFile._0A_Exd))
+                if (!_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
                 {
                     await FixIndexDatCounts();
                     AddText($"{UIStrings.ProblemCheck_RepairComplete}\n", "Green");
@@ -145,7 +140,7 @@ namespace FFXIV_TexTools.Views
 
                 try
                 {
-                    var result = await _problemChecker.CheckIndexDatCounts(file);
+                    var result = await _modding.ProblemChecker.CheckIndexDatCounts(file);
 
                     if (result)
                     {
@@ -158,7 +153,7 @@ namespace FFXIV_TexTools.Views
                         AddText("\t\u2714\t", "Green");
                     }
 
-                    result = await _problemChecker.CheckForLargeDats(file);
+                    result = await _modding.ProblemChecker.CheckForLargeDats(file);
 
                     if (result)
                     {
@@ -188,13 +183,13 @@ namespace FFXIV_TexTools.Views
         {
             foreach (var xivDataFile in _indexDatRepairList)
             {
-                await _problemChecker.RepairIndexDatCounts(xivDataFile);
+                await _modding.ProblemChecker.RepairIndexDatCounts(xivDataFile);
             }
         }
 
         private void CheckDat()
         {
-            var fileInfo = new FileInfo($"{_gameDirectory}\\{XivDataFile._06_Ui.GetDataFileName()}.win32.dat1");
+            var fileInfo = new FileInfo($"{_modding.GameDirectory}\\{XivDataFile._06_Ui.GetDataFileName()}.win32.dat1");
 
             AddText($"\t{XivDataFile._06_Ui.GetDataFileName()} Dat1", textColor);
 
@@ -228,7 +223,7 @@ namespace FFXIV_TexTools.Views
 
                 try
                 {
-                    var result = await _problemChecker.CheckForEmptyDatFiles(file);
+                    var result = await _modding.ProblemChecker.CheckForEmptyDatFiles(file);
 
                     if (result.Count > 0)
                     {
@@ -237,7 +232,7 @@ namespace FFXIV_TexTools.Views
                             AddText($"\n\t{datNum} \t\u2716\t", "Red");
                             AddText($"\nFixing...", "Black");
 
-                            File.Delete($"{_gameDirectory}\\{file.GetDataFileName()}.win32.dat{datNum}");
+                            File.Delete($"{_modding.GameDirectory}\\{file.GetDataFileName()}.win32.dat{datNum}");
 
                             AddText($"\t\u2714\n", "Green");
                         }
@@ -263,12 +258,8 @@ namespace FFXIV_TexTools.Views
         {
             var checkModsLock = new object();
             var addTextLock = new object();
-            var modListDirectory =
-                new DirectoryInfo(Path.Combine(_gameDirectory.Parent.Parent.FullName, XivStrings.ModlistFilePath));
 
-            var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(modListDirectory.FullName));
-
-            var dat = new Dat(_gameDirectory);
+            var modList = _modding.GetModList();
 
             return Task.Run(() =>
             {
@@ -325,7 +316,7 @@ namespace FFXIV_TexTools.Views
                             var fileType = 0;
                             try
                             {
-                                fileType = dat.GetFileType(mod.data.modOffset,
+                                fileType = _modding.Dat.GetFileType(mod.data.modOffset,
                                     XivDataFiles.GetXivDataFile(mod.datFile));
                             }
                             catch (Exception ex)
@@ -489,7 +480,7 @@ namespace FFXIV_TexTools.Views
                         continue;
                     }
 
-                    var result = await _problemChecker.CheckForOutdatedBackups(file, backupDirectory);
+                    var result = await _modding.ProblemChecker.CheckForOutdatedBackups(file, backupDirectory);
 
                     if (!result)
                     {

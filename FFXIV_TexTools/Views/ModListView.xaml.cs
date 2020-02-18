@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Timers;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -41,12 +42,17 @@ namespace FFXIV_TexTools.Views
     {
         private readonly Modding _modding;
         private CancellationTokenSource _cts;
+        private System.Timers.Timer searchTimer = new System.Timers.Timer(300);
 
         public ModListView(Modding modding)
         {
             _modding = modding;
             InitializeComponent();
             DataContext = new ModListViewModel(modding);
+
+            searchTimer.Enabled = true;
+            searchTimer.AutoReset = false;
+            searchTimer.Elapsed += SearchTimerOnElapsed;
         }
 
         /// <summary>
@@ -197,6 +203,16 @@ namespace FFXIV_TexTools.Views
         {
             (DataContext as ModListViewModel).Dispose();
             _cts?.Dispose();
+        }
+
+        private void SearchTimerOnElapsed(object sender, ElapsedEventArgs e)
+        {
+            Dispatcher.Invoke(() => ((ModListViewModel) DataContext).UpdateSearch());
+        }
+
+        private void ModSearchTextBox_TextChanged(object sender, TextChangedEventArgs e) {
+            searchTimer.Stop();
+            searchTimer.Start();
         }
     }
 }

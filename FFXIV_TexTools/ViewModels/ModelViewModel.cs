@@ -58,6 +58,7 @@ namespace FFXIV_TexTools.ViewModels
     public class ModelViewModel : INotifyPropertyChanged
     {
         private readonly ModelView _modelView;
+        private readonly Modding _modding;
         private ObservableCollection<ComboBoxData> _raceComboBoxData = new ObservableCollection<ComboBoxData>();
         private ObservableCollection<ComboBoxData> _partComboBoxData = new ObservableCollection<ComboBoxData>();
         private ObservableCollection<ComboBoxData> _numberComboBoxData = new ObservableCollection<ComboBoxData>();
@@ -85,12 +86,11 @@ namespace FFXIV_TexTools.ViewModels
 
         private Dictionary<int, ModelTextureData> _materialDictionary;
 
-        private DirectoryInfo _gameDirectory;
-
-        public ModelViewModel(ModelView modelView)
+        public ModelViewModel(ModelView modelView, Modding modding)
         {
             ViewPortVM = new Viewport3DViewModel(this);
             _modelView = modelView;
+            _modding = modding;
         }
 
         /// <summary>
@@ -106,12 +106,11 @@ namespace FFXIV_TexTools.ViewModels
 
             _item = (IItemModel)itemModel.Clone();
 
-            _gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            _mdl = new Mdl(_gameDirectory, _item.DataFile);
+            _mdl = new Mdl(_modding, _item.DataFile);
 
             if (itemModel.Category.Equals(XivStrings.Gear))
             {
-                var gear = new Gear(_gameDirectory, GetLanguage());
+                var gear = new Gear(_modding, GetLanguage());
 
                 var xivGear = itemModel as XivGear;
 
@@ -126,7 +125,7 @@ namespace FFXIV_TexTools.ViewModels
             }
             else if (itemModel.Category.Equals(XivStrings.Companions))
             {
-                var companions = new Companions(_gameDirectory, GetLanguage());
+                var companions = new Companions(_modding, GetLanguage());
 
                 Races.Add(_item.ModelInfo.ModelType == XivItemType.demihuman
                     ? new ComboBoxData { Name = XivRace.DemiHuman.GetDisplayName(), XivRace = XivRace.DemiHuman }
@@ -134,7 +133,7 @@ namespace FFXIV_TexTools.ViewModels
             }
             else if (itemModel.Category.Equals(XivStrings.Character))
             {
-                var character = new Character(_gameDirectory, GetLanguage());
+                var character = new Character(_modding, GetLanguage());
 
                 _charaRaceAndNumberDictionary = await character.GetRacesAndNumbersForModels(_item as XivCharacter);
 
@@ -353,7 +352,7 @@ namespace FFXIV_TexTools.ViewModels
             }
             else if (_item.Category.Equals(XivStrings.Character))
             {
-                var character = new Character(_gameDirectory, GetLanguage());
+                var character = new Character(_modding, GetLanguage());
 
                 var parts = await character.GetTypeForModels(_item as XivCharacter, SelectedRace.XivRace,
                     int.Parse(SelectedNumber.Name));
@@ -367,7 +366,7 @@ namespace FFXIV_TexTools.ViewModels
             {
                 if (_item.ModelInfo.ModelType == XivItemType.demihuman)
                 {
-                    var companions = new Companions(_gameDirectory, GetLanguage());
+                    var companions = new Companions(_modding, GetLanguage());
                     var parts = await companions.GetDemiHumanMountModelEquipPartList(_item);
 
                     foreach (var part in parts)
@@ -384,7 +383,7 @@ namespace FFXIV_TexTools.ViewModels
             }
             else if (_item.Category.Equals(XivStrings.Housing))
             {
-                var housing = new Housing(_gameDirectory, GetLanguage());
+                var housing = new Housing(_modding, GetLanguage());
                 var partsDictionary = await housing.GetFurnitureModelParts(_item);
 
                 foreach (var part in partsDictionary)
@@ -545,9 +544,7 @@ namespace FFXIV_TexTools.ViewModels
             MeshComboboxEnabled = _meshCount > 1;
             SelectedMeshIndex = 0;
 
-            var modList = new Modding(_gameDirectory);
-
-            var modStatus = await modList.IsModEnabled(PathString, false);
+            var (modStatus, _) = await _modding.IsModEnabled(PathString, false);
 
             switch (modStatus)
             {
@@ -1179,15 +1176,13 @@ namespace FFXIV_TexTools.ViewModels
         /// </summary>
         private async void ModStatusToggle(object obj)
         {
-            var modlist = new Modding(_gameDirectory);
-
             if (ModToggleText.Equals(UIStrings.Enable))
             {
-                await modlist.ToggleModStatus(PathString, true);
+                await _modding.ToggleModStatus(PathString, true);
             }
             else if (ModToggleText.Equals(UIStrings.Disable))
             {
-                await modlist.ToggleModStatus(PathString, false);
+                await _modding.ToggleModStatus(PathString, false);
             }
             else
             {
@@ -1213,7 +1208,7 @@ namespace FFXIV_TexTools.ViewModels
             try
             {
                 var appVersion = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
-                var dae = new Dae(_gameDirectory, _item.DataFile, Settings.Default.DAE_Plugin_Target, appVersion);
+                var dae = new Dae(_modding, _item.DataFile, Settings.Default.DAE_Plugin_Target, appVersion);
                 var saveDir = new DirectoryInfo(Settings.Default.Save_Directory);
                 await dae.MakeDaeFileFromModel(_item, _mdlData, saveDir, SelectedRace.XivRace);
                 _modelView.BottomFlyout.IsOpen = false;
@@ -1296,7 +1291,7 @@ namespace FFXIV_TexTools.ViewModels
             try
             {
                 var appVersion = FileVersionInfo.GetVersionInfo(System.Reflection.Assembly.GetExecutingAssembly().Location).FileVersion;
-                var dae = new Dae(_gameDirectory, _item.DataFile, Settings.Default.DAE_Plugin_Target, appVersion);
+                var dae = new Dae(_modding, _item.DataFile, Settings.Default.DAE_Plugin_Target, appVersion);
                 var saveDir = new DirectoryInfo(Settings.Default.Save_Directory);
                 await dae.MakeDaeFileFromModel(_item, _mdlData, saveDir, SelectedRace.XivRace);
             }
@@ -1317,7 +1312,7 @@ namespace FFXIV_TexTools.ViewModels
         /// </summary>
         private void ExportObj(object o)
         {
-            var obj = new Obj(_gameDirectory);
+            var obj = new Obj();
             var saveDir = new DirectoryInfo(Settings.Default.Save_Directory);
 
             _modelView.BottomFlyout.IsOpen = false;
@@ -1336,10 +1331,7 @@ namespace FFXIV_TexTools.ViewModels
         /// </remarks>
         private async void Import(object obj)
         {
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
-
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                     UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1352,13 +1344,11 @@ namespace FFXIV_TexTools.ViewModels
             var modelName = Path.GetFileNameWithoutExtension(_mdlData.MdlPath.File);
             var savePath = new DirectoryInfo(Path.Combine(path, modelName) + ".dae");
 
-            var modlist = new Modding(_gameDirectory);
-
             var mdlPath = Path.Combine(_mdlData.MdlPath.Folder, _mdlData.MdlPath.File);
 
             Dictionary<string, string> warnings;
 
-            var modData = await modlist.TryGetModEntry(mdlPath);
+            var modData = await _modding.TryGetModEntry(mdlPath);
 
             try
             {
@@ -1407,10 +1397,7 @@ namespace FFXIV_TexTools.ViewModels
         /// </remarks>
         private async void ImportFrom(object obj)
         {
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
-
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                     UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1421,9 +1408,8 @@ namespace FFXIV_TexTools.ViewModels
             var saveDir = new DirectoryInfo(Settings.Default.Save_Directory);
             var path = new DirectoryInfo($"{IOUtil.MakeItemSavePath(_item, saveDir, SelectedRace.XivRace)}\\3D");
 
-            var modlist = new Modding(_gameDirectory);
             var mdlPath = Path.Combine(_mdlData.MdlPath.Folder, _mdlData.MdlPath.File);
-            var modData = await modlist.TryGetModEntry(mdlPath);
+            var modData = await _modding.TryGetModEntry(mdlPath);
 
             var openFileDialog = new OpenFileDialog();
             openFileDialog.InitialDirectory = path.FullName;
@@ -1481,10 +1467,7 @@ namespace FFXIV_TexTools.ViewModels
         /// <param name="obj"></param>
         private async void AdvancedImport(object obj)
         {
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
-
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                     UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1492,11 +1475,10 @@ namespace FFXIV_TexTools.ViewModels
                 return;
             }
 
-            var modlist = new Modding(_gameDirectory);
             var mdlPath = Path.Combine(_mdlData.MdlPath.Folder, _mdlData.MdlPath.File);
             bool? result = false;
 
-            var modData = await modlist.TryGetModEntry(mdlPath);
+            var modData = await _modding.TryGetModEntry(mdlPath);
 
             try
             {
@@ -1508,13 +1490,13 @@ namespace FFXIV_TexTools.ViewModels
                     var modMdl = await _mdl.GetMdlData(_item, SelectedRace.XivRace, null, modData.fullPath,
                         modData.data.modOffset);
 
-                    var advImportedView = new AdvancedModelImportView(originalMdl, modMdl, _item, SelectedRace.XivRace, false)
+                    var advImportedView = new AdvancedModelImportView(_modding, originalMdl, modMdl, _item, SelectedRace.XivRace, false)
                         { Owner = Window.GetWindow(_modelView) };
                     result = advImportedView.ShowDialog();
                 }
                 else
                 {
-                    var advImportedView = new AdvancedModelImportView(_mdlData,null, _item, SelectedRace.XivRace, false)
+                    var advImportedView = new AdvancedModelImportView(_modding, _mdlData,null, _item, SelectedRace.XivRace, false)
                         { Owner = Window.GetWindow(_modelView) };
                     result = advImportedView.ShowDialog();
                 }
@@ -1629,7 +1611,7 @@ namespace FFXIV_TexTools.ViewModels
         {
             var textureDataDictionary = new Dictionary<int, ModelTextureData>();
             var mtrlDictionary = new Dictionary<int, XivMtrl>();
-            var mtrl = new Mtrl(_gameDirectory, _item.DataFile, GetLanguage());
+            var mtrl = new Mtrl(_modding, _item.DataFile, GetLanguage());
             var mtrlFilePaths = _mdlData.PathData.MaterialList;
             var hasColorChangeShader = false;
             Color? customColor = null;
@@ -1848,7 +1830,7 @@ namespace FFXIV_TexTools.ViewModels
 
             foreach (var xivMtrl in mtrlDictionary)
             {
-                var modelTexture = new ModelTexture(_gameDirectory, xivMtrl.Value);
+                var modelTexture = new ModelTexture(_modding, xivMtrl.Value);
 
                 if (hasColorChangeShader)
                 {

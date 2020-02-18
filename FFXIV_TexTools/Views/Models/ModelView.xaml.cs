@@ -17,6 +17,7 @@
 using FFXIV_TexTools.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
+using xivModdingFramework.Mods;
 
 namespace FFXIV_TexTools.Views
 {
@@ -28,8 +29,7 @@ namespace FFXIV_TexTools.Views
         public ModelView()
         {
             InitializeComponent();
-
-            this.DataContext = new ModelViewModel(this);
+            DataContext = new ModelViewModel(this, ((MainWindow)Application.Current.MainWindow).Modding);
         }
 
         /// <summary>

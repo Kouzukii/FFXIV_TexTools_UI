@@ -24,6 +24,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Forms;
 using Xceed.Wpf.Toolkit;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using xivModdingFramework.Mods.FileTypes;
 
@@ -38,14 +39,16 @@ namespace FFXIV_TexTools.Views
         private readonly int _pageCount;
         private readonly DirectoryInfo _modPackDirectory;
         private ProgressDialogController _progressController;
+        private readonly Modding _modding;
         private readonly Dictionary<string, Image> _imageDictionary;
         private readonly ModPack _modPackEntry;
         private readonly bool _messageInImport;
 
-        public ImportModPackWizard(ModPackJson modPackJson, Dictionary<string, Image> imageDictionary, DirectoryInfo modPackDirectory, bool messageInImport = false)
+        public ImportModPackWizard(Modding modding, ModPackJson modPackJson, Dictionary<string, Image> imageDictionary, DirectoryInfo modPackDirectory, bool messageInImport = false)
         {
             InitializeComponent();
 
+            _modding = modding;
             _imageDictionary = imageDictionary;
             _modPackDirectory = modPackDirectory;
             _messageInImport = messageInImport;
@@ -187,7 +190,7 @@ namespace FFXIV_TexTools.Views
         {
             _progressController = await this.ShowProgressAsync(UIMessages.ModPackImportTitle, UIMessages.PleaseStandByMessage);
 
-            var texToolsModPack = new TTMP(new DirectoryInfo(Properties.Settings.Default.ModPack_Directory), XivStrings.TexTools);
+            var texToolsModPack = _modding.NewModPack();
 
             var importList = new List<ModsJson>();
 
@@ -214,15 +217,11 @@ namespace FFXIV_TexTools.Views
                 modsJson.ModPackEntry = _modPackEntry;
             }
 
-            var gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            var modListDirectory = new DirectoryInfo(Path.Combine(gameDirectory.Parent.Parent.FullName, XivStrings.ModlistFilePath));
-
             var progressIndicator = new Progress<(int current, int total, string message)>(ReportProgress);
 
             try
             {
-                var importResults = await texToolsModPack.ImportModPackAsync(_modPackDirectory, importList,
-                    gameDirectory, modListDirectory, progressIndicator);
+                var importResults = await texToolsModPack.ImportModPackAsync(_modPackDirectory, importList, progressIndicator);
 
                 TotalModsImported = importResults.ImportCount;
 

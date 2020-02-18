@@ -29,12 +29,14 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using HelixToolkit.Wpf;
 using xivModdingFramework.General.Enums;
 using xivModdingFramework.Items.DataContainers;
 using xivModdingFramework.Materials.FileTypes;
@@ -53,10 +55,10 @@ namespace FFXIV_TexTools.ViewModels
         private string _modToggleText = UIStrings.Enable_Disable;
         private Visibility _listVisibility = Visibility.Visible, _infoGridVisibility = Visibility.Collapsed;
         private string _modPackTitle, _modPackModAuthorLabel, _modPackModCountLabel, _modPackModVersionLabel, _modPackContentList, _progressText;
-        private bool _itemFilter, _modPackFilter;
         private int _progressValue;
         private ObservableCollection<Category> _categories;
         private IProgress<(int current, int total)> progress;
+        private string _searchText;
 
 
         public ModListViewModel(Modding modding)
@@ -69,7 +71,15 @@ namespace FFXIV_TexTools.ViewModels
                 ProgressText = $"{result.current} / {result.total}";
             });
 
-            ItemFilter = true;
+            GetCategoriesModPackFilter();
+        }
+
+        public string SearchText {
+            get => _searchText;
+            set {
+                _searchText = string.IsNullOrWhiteSpace(value) ? null : value;
+                OnPropertyChanged(nameof(SearchText));
+            }
         }
 
         /// <summary>
@@ -86,93 +96,6 @@ namespace FFXIV_TexTools.ViewModels
         }
 
         /// <summary>
-        /// Gets the categories based on the item filter
-        /// </summary>
-        private Task GetCategoriesItemFilter()
-        {
-            Categories = new ObservableCollection<Category>();
-
-            return Task.Run(() => 
-            {
-                var modList = _modding.GetModList();
-
-                if (modList == null) return;
-
-                // Mod Packs
-                var category = new Category
-                {
-                    Name = "ModPacks",
-                    Categories = new ObservableCollection<Category>(),
-                    CategoryList = new List<string>()
-                };
-
-                var categoryItem = new Category
-                {
-                    Name = UIStrings.Standalone_Non_ModPack,
-                    ParentCategory = category
-                };
-
-                category.Categories.Add(categoryItem);
-
-                foreach (var modListModPack in modList.ModPacks)
-                {
-                    categoryItem = new Category
-                    {
-                        Name = modListModPack.name,
-                        ParentCategory = category
-                    };
-
-                    category.Categories.Add(categoryItem);
-                }
-
-                Application.Current.Dispatcher.Invoke(() => Categories.Add(category));
-
-                // Mods
-                var mainCategories = new HashSet<string>();
-
-                foreach (var modEntry in modList.Mods)
-                {
-                    if (!modEntry.name.Equals(string.Empty))
-                    {
-                        mainCategories.Add(modEntry.category);
-                    }
-                }
-
-                foreach (var mainCategory in mainCategories)
-                {
-                    category = new Category
-                    {
-                        Name = mainCategory,
-                        Categories = new ObservableCollection<Category>(),
-                        CategoryList = new List<string>()
-                    };
-
-                    var modItems =
-                        from mod in modList.Mods
-                        where mod.category.Equals(mainCategory)
-                        select mod;
-
-                    foreach (var modItem in modItems)
-                    {
-                        if (category.CategoryList.Contains(modItem.name)) continue;
-
-                        categoryItem = new Category
-                        {
-                            Name = modItem.name,
-                            Item = MakeItemModel(modItem),
-                            ParentCategory = category
-                        };
-
-                        category.Categories.Add(categoryItem);
-                        category.CategoryList.Add(modItem.name);
-                    }
-
-                    Application.Current.Dispatcher.Invoke(() => Categories.Add(category));
-                }
-            });
-        }
-
-        /// <summary>
         /// Gets the categoreis based on the mod pack filter
         /// </summary>
         private Task GetCategoriesModPackFilter()
@@ -184,14 +107,13 @@ namespace FFXIV_TexTools.ViewModels
                 var modList = _modding.GetModList();
 
                 var modPackCatDict = new Dictionary<string, Category>();
-
-                if (modList == null) return;
+                var modPackMainCatDict = new DoubleKeyDictionary<string, string, Category>();
 
                 // Mod Packs
 
                 var modPacksParent = new Category
                 {
-                    Name = "ModPacks",
+                    Name = "ModPacks"
                 };
 
                 var category = new Category
@@ -204,82 +126,50 @@ namespace FFXIV_TexTools.ViewModels
 
                 modPackCatDict.Add(category.Name, category);
 
-                foreach (var modListModPack in modList.ModPacks)
-                {
-                    category = new Category
-                    {
-                        Name = modListModPack.name,
-                        Categories = new ObservableCollection<Category>(),
-                        CategoryList = new List<string>(),
-                        ParentCategory = modPacksParent
-                    };
+                var terms = _searchText != null
+                    ? Regex.Replace(_searchText, @"(?:\W|^)(\w+)(?:\W+|$)", "$1 ")
+                        .Split(new[] {' '}, StringSplitOptions.RemoveEmptyEntries)
+                    : new string[0];
 
-                    modPackCatDict.Add(category.Name, category);
-                }
+                foreach (var mod in modList.Mods) {
+                    if (mod.modPack != null && (terms.Length == 0 || terms.All(t => mod.name.IndexOf(t, StringComparison.InvariantCultureIgnoreCase) >= 0 || mod.modPack.name.IndexOf(t, StringComparison.InvariantCultureIgnoreCase) >= 0))) {
+                        if (!modPackMainCatDict.TryGetValue(mod.modPack.name, mod.category, out var cat)) {
+                            if (!modPackCatDict.TryGetValue(mod.modPack.name, out var parent)) {
+                                parent = new Category
+                                {
+                                    Name = mod.modPack.name,
+                                    Categories = new ObservableCollection<Category>(),
+                                    CategoryList = new List<string>(),
+                                    ParentCategory = modPacksParent
+                                };
 
-                foreach (var modPackCategory in modPackCatDict)
-                {
-                    List<Mod> modsInModpack;
-
-                    if (!modPackCategory.Key.Equals(UIStrings.Standalone_Non_ModPack))
-                    {
-                        modsInModpack = (from mod in modList.Mods
-                            where mod.modPack != null && mod.modPack.name.Equals(modPackCategory.Key)
-                            select mod).ToList();
-                    }
-                    else
-                    {
-                        modsInModpack = (from mod in modList.Mods
-                            where mod.modPack == null
-                            select mod).ToList();
-                    }
-
-                    var mainCategories = new HashSet<string>();
-
-                    foreach (var modEntry in modsInModpack)
-                    {
-                        if (!modEntry.name.Equals(string.Empty))
-                        {
-                            mainCategories.Add(modEntry.category);
+                                modPackCatDict.Add(parent.Name, parent);
+                            }
+                            cat = new Category {
+                                Name = mod.category,
+                                Categories = new ObservableCollection<Category>(),
+                                CategoryList = new List<string>(),
+                                ParentCategory = parent
+                            };
+                            modPackMainCatDict.Add(mod.modPack.name, mod.category, cat);
+                            parent.Categories.Add(cat);
                         }
-                    }
 
-                    foreach (var mainCategory in mainCategories)
-                    {
-                        category = new Category
+                        if (cat.CategoryList.Contains(mod.name)) continue;
+
+                        var categoryItem = new Category
                         {
-                            Name = mainCategory,
-                            Categories = new ObservableCollection<Category>(),
-                            CategoryList = new List<string>(),
-                            ParentCategory = modPackCategory.Value
+                            Name = mod.name,
+                            Item = MakeItemModel(mod),
+                            ParentCategory = category
                         };
 
-                        var modItems =
-                            from mod in modsInModpack
-                            where mod.category.Equals(mainCategory)
-                            select mod;
-
-                        foreach (var modItem in modItems)
-                        {
-                            if (category.CategoryList.Contains(modItem.name)) continue;
-
-                            var categoryItem = new Category
-                            {
-                                Name = modItem.name,
-                                Item = MakeItemModel(modItem),
-                                ParentCategory = category
-                            };
-
-                            category.Categories.Add(categoryItem);
-                            category.CategoryList.Add(modItem.name);
-
-                        }
-
-                        modPackCategory.Value.Categories.Add(category);
+                        cat.Categories.Add(categoryItem);
+                        cat.CategoryList.Add(mod.name);
                     }
-
-                    Application.Current.Dispatcher.Invoke(() => Categories.Add(modPackCategory.Value));
                 }
+
+                Application.Current.Dispatcher.Invoke(() => Categories = new ObservableCollection<Category>(modPackCatDict.Values));
             });
         }
 
@@ -468,53 +358,43 @@ namespace FFXIV_TexTools.ViewModels
                 var selectedItem = category.Item as XivGenericItemModel;
                 if (selectedItem == null) return;
 
-                var mtrl = new Mtrl(_modding.GameDirectory, selectedItem.DataFile, GetLanguage());
+                var mtrl = new Mtrl(_modding, selectedItem.DataFile, GetLanguage());
                 var modList = _modding.GetModList();
 
                 var modItems = new List<Mod>();
 
-                if (ModPackFilter)
+                var modPackCategory = category;
+
+                while (!modPackCategory.ParentCategory.Name.Equals("ModPacks"))
                 {
-                    var modPackCategory = category;
+                    modPackCategory = modPackCategory.ParentCategory;
+                }
 
-                    while (!modPackCategory.ParentCategory.Name.Equals("ModPacks"))
+                foreach (var mod in modList.Mods)
+                {
+                    if (!mod.name.Equals(selectedItem.Name)) continue;
+
+                    if (mod.modPack != null)
                     {
-                        modPackCategory = modPackCategory.ParentCategory;
-                    }
-
-                    foreach (var mod in modList.Mods)
-                    {
-                        if (!mod.name.Equals(selectedItem.Name)) continue;
-
-                        if (mod.modPack != null)
-                        {
-                            if (mod.modPack.name == modPackCategory.Name)
-                            {
-                                modItems.Add(mod);
-                            }
-                        }
-                        else
+                        if (mod.modPack.name == modPackCategory.Name)
                         {
                             modItems.Add(mod);
                         }
                     }
-                }
-                else
-                {
-                    modItems =
-                        (from mod in modList.Mods
-                         where mod.name.Equals(selectedItem.Name)
-                         select mod).ToList();
+                    else
+                    {
+                        modItems.Add(mod);
+                    }
                 }
 
                 if (modItems.Count > 10)
                 {
-                    tex = new Tex(_modding.GameDirectory, selectedItem.DataFile);
+                    tex = new Tex(_modding, selectedItem.DataFile);
                     await tex.GetIndexFileDictionary();
                 }
                 else
                 {
-                    tex = new Tex(_modding.GameDirectory);
+                    tex = new Tex(_modding);
                 }
 
                 var modNum = 0;
@@ -941,28 +821,19 @@ namespace FFXIV_TexTools.ViewModels
             if (remainingList.Count == 0)
             {
                 Category parentCategory = null;
-                if (ModPackFilter)
+                foreach (var modPackCategory in Categories)
                 {
-                    foreach (var modPackCategory in Categories)
-                    {
-                        parentCategory = (from parent in modPackCategory.Categories
-                            where parent.Name.Equals(item.ModItem.category)
-                            select parent).FirstOrDefault();
-
-                        if (parentCategory != null)
-                        {
-                            break;
-                        }
-                    }
-                }
-                else
-                {
-                    parentCategory = (from parent in Categories
+                    parentCategory = (from parent in modPackCategory.Categories
                         where parent.Name.Equals(item.ModItem.category)
                         select parent).FirstOrDefault();
+
+                    if (parentCategory != null)
+                    {
+                        break;
+                    }
                 }
 
-                if (Categories != null)
+                if (parentCategory != null)
                 {
                     parentCategory.Categories.Remove(category);
 
@@ -979,9 +850,12 @@ namespace FFXIV_TexTools.ViewModels
         /// <summary>
         /// Refreshes the view after a mod pack is deleted
         /// </summary>
-        public void RemoveModPack()
-        {
-            SetFilter(ItemFilter ? "ItemFilter" : "ModPackFilter");
+        public void RemoveModPack() {
+            GetCategoriesModPackFilter();
+        }
+
+        public void UpdateSearch() {
+            GetCategoriesModPackFilter();
         }
 
         /// <summary>
@@ -1088,40 +962,6 @@ namespace FFXIV_TexTools.ViewModels
             }
         }
 
-        /// <summary>
-        /// The status of the item filter
-        /// </summary>
-        public bool ItemFilter
-        {
-            get => _itemFilter;
-            set
-            {
-                _itemFilter = value;
-                if (value)
-                {
-                    SetFilter("ItemFilter");
-                }
-                OnPropertyChanged(nameof(ItemFilter));
-            }
-        }
-
-        /// <summary>
-        /// The status of the mod pack filter
-        /// </summary>
-        public bool ModPackFilter
-        {
-            get => _modPackFilter;
-            set
-            {
-                _modPackFilter = value;
-                if (value)
-                {
-                    SetFilter("ModPackFilter");
-                }
-                OnPropertyChanged(nameof(ModPackFilter));
-            }
-        }
-
         public int ProgressValue
         {
             get => _progressValue;
@@ -1139,22 +979,6 @@ namespace FFXIV_TexTools.ViewModels
             {
                 _progressText = value;
                 OnPropertyChanged(nameof(ProgressText));
-            }
-        }
-
-        /// <summary>
-        /// Sets the filter for the mod list treeview
-        /// </summary>
-        /// <param name="type">The type of the filter</param>
-        private async void SetFilter(string type)
-        {
-            if (type.Equals("ItemFilter"))
-            {
-                await GetCategoriesItemFilter();
-            }
-            else if (type.Equals("ModPackFilter"))
-            {
-                await GetCategoriesModPackFilter();
             }
         }
 

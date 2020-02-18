@@ -37,6 +37,7 @@ using xivModdingFramework.Items.DataContainers;
 using xivModdingFramework.Items.Interfaces;
 using xivModdingFramework.Materials.FileTypes;
 using xivModdingFramework.Models.FileTypes;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using xivModdingFramework.SqPack.FileTypes;
 using xivModdingFramework.Textures.DataContainers;
@@ -53,18 +54,16 @@ namespace FFXIV_TexTools.Views
     {
         private List<ModOption> _modOptions;
         private ModOption _selectedModOption;
-        private readonly DirectoryInfo _gameDirectory;
-        private readonly DirectoryInfo _modListDirectory;
+        private readonly Modding _modding;
         private readonly List<string> _groupNames;
         private string _editGroupName;
         private bool _editMode;
 
-        public WizardAddGroupWindow(List<string> groupNames)
+        public WizardAddGroupWindow(Modding modding, List<string> groupNames)
         {
             InitializeComponent();
             _modOptions = new List<ModOption>();
-            _gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            _modListDirectory = new DirectoryInfo(Path.Combine(_gameDirectory.Parent.Parent.FullName, XivStrings.ModlistFilePath));
+            _modding = modding;
             _groupNames = groupNames;
 
             FillModListTreeView();
@@ -225,9 +224,9 @@ namespace FFXIV_TexTools.Views
         /// <summary>
         /// Fills the mod list tree view
         /// </summary>
-        private void FillModListTreeView()
+        private void FillModListTreeView() 
         {
-            var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+            var modList = _modding.GetModList();
 
             var Categories = new ObservableCollection<Category>();
 
@@ -635,7 +634,7 @@ namespace FFXIV_TexTools.Views
 
             var selectedItem = e.NewValue as Category;
 
-            var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(_modListDirectory.FullName));
+            var modList = _modding.GetModList();
 
             var modItems =
                 from mod in modList.Mods
@@ -879,8 +878,6 @@ namespace FFXIV_TexTools.Views
         /// </summary>
         private void AddCurrentTextureButton_Click(object sender, RoutedEventArgs e)
         {
-            var dat = new Dat(_gameDirectory);
-
             var selectedItem = TextureMapComboBox.SelectedItem as ModComboBox;
 
             var mod = selectedItem.SelectedMod;
@@ -900,7 +897,7 @@ namespace FFXIV_TexTools.Views
                         UIMessages.OverwriteTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) ==
                     System.Windows.Forms.DialogResult.Yes)
                 {
-                    var rawData = dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
+                    var rawData = _modding.Dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
 
                     if (rawData == null)
                     {
@@ -915,7 +912,7 @@ namespace FFXIV_TexTools.Views
             }
             else
             {
-                var rawData = dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
+                var rawData = _modding.Dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
 
                 if (rawData == null)
                 {
@@ -957,19 +954,18 @@ namespace FFXIV_TexTools.Views
 
             var includedModsList = IncludedModsList.Items.Cast<IncludedMods>().ToList();
 
-            var tex = new Tex(_gameDirectory);
+            var tex = new Tex(_modding);
 
             var ddsDirectory = new DirectoryInfo(CustomTextureTextBox.Text);
 
             if (selectedItem.TexTypePath.Type == XivTexType.ColorSet)
             {
-                var mtrl = new Mtrl(_gameDirectory, XivDataFiles.GetXivDataFile(mod.datFile), GetLanguage());
+                var mtrl = new Mtrl(_modding, XivDataFiles.GetXivDataFile(mod.datFile), GetLanguage());
 
                 var xivMtrl = await mtrl.GetMtrlData(mod.data.modOffset, mod.fullPath, int.Parse(Settings.Default.DX_Version));
 
                 modData = tex.DDStoMtrlData(xivMtrl, ddsDirectory, ((Category) ModListTreeView.SelectedItem).Item, GetLanguage());
-                var dat = new Dat(_gameDirectory);
-                modData = await dat.CreateType2Data(modData);
+                modData = await _modding.Dat.CreateType2Data(modData);
             }
             else
             {
@@ -1014,8 +1010,6 @@ namespace FFXIV_TexTools.Views
         /// </summary>
         private void AddCurrentMaterialButton_Click(object sender, RoutedEventArgs e)
         {
-            var dat = new Dat(_gameDirectory);
-
             var selectedItem = MaterialComboBox.SelectedItem as ModComboBox;
 
             var mod = selectedItem.SelectedMod;
@@ -1035,7 +1029,7 @@ namespace FFXIV_TexTools.Views
                         UIMessages.OverwriteTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) ==
                     System.Windows.Forms.DialogResult.Yes)
                 {
-                    var rawData = dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
+                    var rawData = _modding.Dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
 
                     if (rawData == null)
                     {
@@ -1050,7 +1044,7 @@ namespace FFXIV_TexTools.Views
             }
             else
             {
-                var rawData = dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
+                var rawData = _modding.Dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
 
                 if (rawData == null)
                 {
@@ -1078,8 +1072,6 @@ namespace FFXIV_TexTools.Views
         /// </summary>
         private void AddCurrentModelButton_Click(object sender, RoutedEventArgs e)
         {
-            var dat = new Dat(_gameDirectory);
-
             var selectedItem = ModelTypeComboBox.SelectedItem as ModComboBox;
 
             var mod = selectedItem.SelectedMod;
@@ -1099,7 +1091,7 @@ namespace FFXIV_TexTools.Views
                         UIMessages.OverwriteTitle, MessageBoxButtons.YesNo, MessageBoxIcon.Question) ==
                     System.Windows.Forms.DialogResult.Yes)
                 {
-                    var rawData = dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
+                    var rawData = _modding.Dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
 
                     if (rawData == null)
                     {
@@ -1114,7 +1106,7 @@ namespace FFXIV_TexTools.Views
             }
             else
             {
-                var rawData = dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
+                var rawData = _modding.Dat.GetRawData(mod.data.modOffset, XivDataFiles.GetXivDataFile(mod.datFile), mod.data.modSize);
 
                 if (rawData == null)
                 {
@@ -1155,12 +1147,12 @@ namespace FFXIV_TexTools.Views
             var itemModel = MakeItemModel(mod);
 
             var includedModsList = IncludedModsList.Items.Cast<IncludedMods>().ToList();
-            var mdl = new Mdl(_gameDirectory, XivDataFiles.GetXivDataFile(mod.datFile));
+            var mdl = new Mdl(_modding, XivDataFiles.GetXivDataFile(mod.datFile));
 
             var xivMdl = await mdl.GetMdlData(itemModel, GetRace(mod.fullPath), null, null, mod.data.originalOffset);
             var modMdl = await mdl.GetMdlData(itemModel, GetRace(mod.fullPath), null, null, mod.data.modOffset);
 
-            var advancedImportView = new AdvancedModelImportView(xivMdl, modMdl, itemModel, GetRace(mod.fullPath), true);
+            var advancedImportView = new AdvancedModelImportView(_modding, xivMdl, modMdl, itemModel, GetRace(mod.fullPath), true);
             var result = advancedImportView.ShowDialog();
 
             if (result == true)
@@ -1208,7 +1200,7 @@ namespace FFXIV_TexTools.Views
             var itemModel = MakeItemModel(mod);
 
             var includedModsList = IncludedModsList.Items.Cast<IncludedMods>().ToList();
-            var mdl = new Mdl(_gameDirectory, XivDataFiles.GetXivDataFile(mod.datFile));
+            var mdl = new Mdl(_modding, XivDataFiles.GetXivDataFile(mod.datFile));
             var xivMdl = await mdl.GetMdlData(itemModel, GetRace(mod.fullPath), null, null, mod.data.originalOffset);
             var warnings = await mdl.ImportModel(itemModel, xivMdl, new DirectoryInfo(CustomModelTextBox.Text), null, XivStrings.TexTools, 
                 Settings.Default.DAE_Plugin_Target, true);

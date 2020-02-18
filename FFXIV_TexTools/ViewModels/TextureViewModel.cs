@@ -70,11 +70,11 @@ namespace FFXIV_TexTools.ViewModels
         private Mtrl _mtrl;
         private Tex _tex;
         private XivMtrl _xivMtrl;
-        private Modding _modList;
         private XivUi _uiItem;
         private BitmapSource _imageDisplay;
         private ColorChannels _imageEffect;
         private readonly TextureView _textureView;
+        private readonly Modding _modding;
         private MapData _mapData;
 
         private Dictionary<XivRace, int[]> _charaRaceAndNumberDictionary;
@@ -95,9 +95,10 @@ namespace FFXIV_TexTools.ViewModels
 
         public event EventHandler LoadingComplete;
 
-        public TextureViewModel(TextureView textureView)
+        public TextureViewModel(TextureView textureView, Modding modding)
         {
             _textureView = textureView;
+            _modding = modding;
             ChannelsEnabled = false;
         }
 
@@ -109,17 +110,15 @@ namespace FFXIV_TexTools.ViewModels
         {
             ClearAll();
 
-            var gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            _mtrl = new Mtrl(gameDirectory, item.DataFile, GetLanguage());
-            _tex = new Tex(gameDirectory);
-            _modList = new Modding(gameDirectory);
+            _mtrl = new Mtrl(_modding, item.DataFile, GetLanguage());
+            _tex = new Tex(_modding);
 
             if (item.Category.Equals(XivStrings.Gear))
             {
                 _category = XivStrings.Gear;
                 _item = item as IItemModel;
 
-                _gear = new Gear(gameDirectory, GetLanguage());
+                _gear = new Gear(_modding, GetLanguage());
 
                 var gearItem = item as XivGear;
 
@@ -134,7 +133,7 @@ namespace FFXIV_TexTools.ViewModels
             }
             else if (item.Category.Equals(XivStrings.Companions))
             {
-                _companions = new Companions(gameDirectory, GetLanguage());
+                _companions = new Companions(_modding, GetLanguage());
                 _category = XivStrings.Companions;
                 _item = item as IItemModel;
 
@@ -144,7 +143,7 @@ namespace FFXIV_TexTools.ViewModels
             }
             else if (item.Category.Equals(XivStrings.Character))
             {
-                _character = new Character(gameDirectory, GetLanguage());
+                _character = new Character(_modding, GetLanguage());
                 _item = item as IItemModel;
 
                 if (_item.ItemCategory.Equals(XivStrings.Face_Paint) ||
@@ -784,14 +783,13 @@ namespace FFXIV_TexTools.ViewModels
                     {
                         if (_uiItem.ItemCategory.Equals("Icon"))
                         {
-                            var index = new Index(new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory));
                             var languages = new[] {"en", "ja", "fr", "de"};
                             var iconFile = $"{_uiItem.IconNumber.ToString().PadLeft(6, '0')}.tex";
                             var iconFolder = $"{Path.GetDirectoryName(_uiItem.UiPath).Replace("\\", "/")}";
 
                             ttpList = new List<TexTypePath>();
 
-                            if (await index.FileExists(HashGenerator.GetHash(iconFile), HashGenerator.GetHash(iconFolder), XivDataFile._06_Ui))
+                            if (await _modding.Index.FileExists(HashGenerator.GetHash(iconFile), HashGenerator.GetHash(iconFolder), XivDataFile._06_Ui))
                             {
                                 var ttp = new TexTypePath { DataFile = _uiItem.DataFile, Path = _uiItem.UiPath, Type = XivTexType.Icon };
                                 ttpList.Add(ttp);
@@ -801,7 +799,7 @@ namespace FFXIV_TexTools.ViewModels
                             {
                                 var iconLangFolder = $"{iconFolder}/{language}";
 
-                                if (await index.FileExists(HashGenerator.GetHash(iconFile), HashGenerator.GetHash(iconLangFolder), XivDataFile._06_Ui))
+                                if (await _modding.Index.FileExists(HashGenerator.GetHash(iconFile), HashGenerator.GetHash(iconLangFolder), XivDataFile._06_Ui))
                                 {
                                     var ttp = new TexTypePath { DataFile = _uiItem.DataFile, Path = $"{iconLangFolder}/{iconFile}", Type = XivTexType.Icon, Name = $"Icon {language}"};
                                     ttpList.Add(ttp);
@@ -810,7 +808,7 @@ namespace FFXIV_TexTools.ViewModels
 
                             var iconHQFolder = $"{iconFolder}/hq";
 
-                            if (await index.FileExists(HashGenerator.GetHash(iconFile), HashGenerator.GetHash(iconHQFolder), XivDataFile._06_Ui))
+                            if (await _modding.Index.FileExists(HashGenerator.GetHash(iconFile), HashGenerator.GetHash(iconHQFolder), XivDataFile._06_Ui))
                             {
                                 var ttp = new TexTypePath { DataFile = _uiItem.DataFile, Path = $"{iconHQFolder}/{iconFile}", Type = XivTexType.Icon, Name = "Icon HQ"};
                                 ttpList.Add(ttp);
@@ -1005,7 +1003,7 @@ namespace FFXIV_TexTools.ViewModels
                 TextureDimensions = "4 x 16";
             }
 
-            var modStatus = await _modList.IsModEnabled(PathString, false);
+            var (modStatus, _) = await _modding.IsModEnabled(PathString, false);
 
             switch (modStatus)
             {
@@ -1329,10 +1327,8 @@ namespace FFXIV_TexTools.ViewModels
         {
             if (!CheckMtrlIsOK())
                 return;
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
 
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                     UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1408,10 +1404,8 @@ namespace FFXIV_TexTools.ViewModels
         {
             if (!CheckMtrlIsOK())
                 return;
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
 
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                     UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1517,10 +1511,8 @@ namespace FFXIV_TexTools.ViewModels
         {
             if (!CheckMtrlIsOK())
                 return;
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
 
-            if (index.IsIndexLocked(XivDataFile._0A_Exd))
+            if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
             {
                 FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                     UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
@@ -1594,16 +1586,14 @@ namespace FFXIV_TexTools.ViewModels
         {
             if (!CheckMtrlIsOK())
                 return;
-            var gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            var modlist = new Modding(gameDirectory);
 
             if (ModToggleText.Equals(UIStrings.Enable))
             {
-                await modlist.ToggleModStatus(SelectedMap.TexType.Path, true);
+                await _modding.ToggleModStatus(SelectedMap.TexType.Path, true);
             }
             else if (ModToggleText.Equals(UIStrings.Disable))
             {
-                await modlist.ToggleModStatus(SelectedMap.TexType.Path, false);
+                await _modding.ToggleModStatus(SelectedMap.TexType.Path, false);
             }
             else
             {
@@ -1678,16 +1668,14 @@ namespace FFXIV_TexTools.ViewModels
                     return;
                 }
                 //Update the new part path;
-                var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-                var index = new Index(gameDirectory);
-                if (index.IsIndexLocked(XivDataFile._0A_Exd))
+                if (_modding.Index.IsIndexLocked(XivDataFile._0A_Exd))
                 {
                     FlexibleMessageBox.Show(UIMessages.IndexLockedErrorMessage,
                         UIMessages.IndexLockedErrorTitle, MessageBoxButtons.OK, MessageBoxIcon.Error);
 
                     return;
                 }
-                var mtrlOffset = await index.GetDataOffset(HashGenerator.GetHash(Path.GetDirectoryName(_xivMtrl.MTRLPath).Replace("\\", "/")), HashGenerator.GetHash(Path.GetFileName(_xivMtrl.MTRLPath)), _item.DataFile);
+                var mtrlOffset = await _modding.Index.GetDataOffset(HashGenerator.GetHash(Path.GetDirectoryName(_xivMtrl.MTRLPath).Replace("\\", "/")), HashGenerator.GetHash(Path.GetFileName(_xivMtrl.MTRLPath)), _item.DataFile);
                 var xivMtrl = await _mtrl.GetMtrlData(mtrlOffset, _xivMtrl.MTRLPath, 11);
                 var oldTexturePathSize = xivMtrl.TexturePathList.Select(it => it.Replace("--", String.Empty)).Sum(it => it.Length) + xivMtrl.TexturePathList.Count;
                 var oldTexturePathOffsetDataSize = xivMtrl.TexturePathOffsetList.Count * 4;
@@ -1873,13 +1861,12 @@ namespace FFXIV_TexTools.ViewModels
         }
         async Task<List<IItemModel>> GetSameModelList()
         {
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
             var sameModelItems=new List<IItemModel>();
-            var gear = new Gear(gameDirectory, GetLanguage());
-            var character = new Character(gameDirectory, GetLanguage());
-            var companions = new Companions(gameDirectory, GetLanguage());
-            var ui = new UI(gameDirectory, GetLanguage());
-            var housing = new Housing(gameDirectory, GetLanguage());
+            var gear = new Gear(_modding, GetLanguage());
+            var character = new Character(_modding, GetLanguage());
+            var companions = new Companions(_modding, GetLanguage());
+            var ui = new UI(_modding, GetLanguage());
+            var housing = new Housing(_modding, GetLanguage());
             //gear
             if (_item.Category.Equals(XivStrings.Gear))
             {
@@ -2399,9 +2386,7 @@ namespace FFXIV_TexTools.ViewModels
             _textureView.BottomFlyout.IsOpen = false;
             if (_xivMtrl != null)
             {
-                var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-                var index = new Index(gameDirectory);
-                var offset = index.GetDataOffset(HashGenerator.GetHash(Path.GetDirectoryName(_xivMtrl.MTRLPath).Replace("\\", "/")), HashGenerator.GetHash(Path.GetFileName(_xivMtrl.MTRLPath)), _item.DataFile).GetAwaiter().GetResult();
+                var offset = _modding.Index.GetDataOffset(HashGenerator.GetHash(Path.GetDirectoryName(_xivMtrl.MTRLPath).Replace("\\", "/")), HashGenerator.GetHash(Path.GetFileName(_xivMtrl.MTRLPath)), _item.DataFile).GetAwaiter().GetResult();
                 if (offset == 0)
                 {
                     SelectedPart = SelectedPart;
@@ -2414,8 +2399,6 @@ namespace FFXIV_TexTools.ViewModels
         {
             var path = SelectedMap.TexType.Path;
             _textureView.BottomFlyout.IsOpen = false;
-            var gameDirectory = new DirectoryInfo(Settings.Default.FFXIV_Directory);
-            var index = new Index(gameDirectory);
 
             XivDataFile? dataFile = null;
             if (path.StartsWith("ui/"))
@@ -2424,7 +2407,7 @@ namespace FFXIV_TexTools.ViewModels
                 dataFile = _item.DataFile;
             if (dataFile == null)
                 return true;
-            var offset = index.GetDataOffset(HashGenerator.GetHash(Path.GetDirectoryName(path).Replace("\\", "/")), HashGenerator.GetHash(Path.GetFileName(path)),dataFile.Value).GetAwaiter().GetResult();
+            var offset = _modding.Index.GetDataOffset(HashGenerator.GetHash(Path.GetDirectoryName(path).Replace("\\", "/")), HashGenerator.GetHash(Path.GetFileName(path)),dataFile.Value).GetAwaiter().GetResult();
             if (offset>0)
             {
                 return true;

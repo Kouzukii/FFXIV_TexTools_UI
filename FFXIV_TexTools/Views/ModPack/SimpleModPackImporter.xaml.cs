@@ -48,7 +48,8 @@ namespace FFXIV_TexTools.Views
     {
         private readonly ObservableCollection<SimpleModPackEntries> _simpleDataList = new ObservableCollection<SimpleModPackEntries>();
         private ListSortDirection _lastDirection = ListSortDirection.Ascending;
-        private readonly DirectoryInfo _gameDirectory, _modPackDirectory;
+        private readonly Modding _modding;
+        private readonly DirectoryInfo _modPackDirectory;
         private ProgressDialogController _progressController;
         private readonly TTMP _texToolsModPack;
         private int _modCount;
@@ -59,19 +60,16 @@ namespace FFXIV_TexTools.Views
         public static extern long StrFormatByteSize(long fileSize, [MarshalAs(UnmanagedType.LPTStr)] StringBuilder buffer, int bufferSize);
 
 
-        public SimpleModPackImporter(DirectoryInfo modPackDirectory, ModPackJson modPackJson, bool silent = false, bool messageInImport = false)
+        public SimpleModPackImporter(Modding modding, DirectoryInfo modPackDirectory, ModPackJson modPackJson, bool silent = false, bool messageInImport = false)
         {
             InitializeComponent();
 
+            _modding = modding;
             _modPackDirectory = modPackDirectory;
-            _gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-            _texToolsModPack = new TTMP(new DirectoryInfo(Properties.Settings.Default.ModPack_Directory),
-                XivStrings.TexTools);
+            _texToolsModPack = _modding.NewModPack();
             _messageInImport = messageInImport;
 
-            var index = new Index(_gameDirectory);
-
-            _indexLockStatus = index.IsIndexLocked(XivDataFile._0A_Exd);
+            _indexLockStatus = _modding.Index.IsIndexLocked(XivDataFile._0A_Exd);
 
             ModListView.ItemsSource = _simpleDataList;
 
@@ -147,8 +145,6 @@ namespace FFXIV_TexTools.Views
         /// <param name="modPackJson">The mod pack json</param>
         private async Task ImportSimpleModPack(ModPackJson modPackJson, IProgress<(int count, int total)> progress)
         {
-            var modding = new Modding(_gameDirectory);
-
             await Task.Run(async () =>
             {
                 var modNum = 0;
@@ -166,13 +162,14 @@ namespace FFXIV_TexTools.Views
                     var mapTask = GetMap(modsJson.FullPath);
 
                     var active = false;
-                    var isActiveTask = modding.IsModEnabled(modsJson.FullPath, false);
+                    var isActiveTask = _modding.IsModEnabled(modsJson.FullPath, false);
 
                     var taskList = new List<Task> {raceTask, numberTask, typeTask, mapTask, isActiveTask};
 
                     var race = XivRace.All_Races;
                     string number = string.Empty, type = string.Empty, map = string.Empty;
                     var isActive = XivModStatus.Disabled;
+                    string activeModPack = null;
 
                     while (taskList.Any())
                     {
@@ -201,7 +198,7 @@ namespace FFXIV_TexTools.Views
                         else if (finished == isActiveTask)
                         {
                             taskList.Remove(isActiveTask);
-                            isActive = await isActiveTask;
+                            (isActive, activeModPack) = await isActiveTask;
                         }
                     }
 
@@ -223,6 +220,7 @@ namespace FFXIV_TexTools.Views
                             Num = number,
                             Map = map,
                             Active = active,
+                            ActiveModPack = activeModPack,
                             JsonEntry = modsJson,
                         }));
                 }
@@ -246,8 +244,6 @@ namespace FFXIV_TexTools.Views
         /// <param name="modPackDirectory">The mod pack directory</param>
         private async Task ImportOldModPack(IProgress<(int count, int total)> progress)
         {
-            var modding = new Modding(_gameDirectory);
-
             var originalModPackData = await _texToolsModPack.GetOriginalModPackJsonData(_modPackDirectory);
 
             await Task.Run(async () =>
@@ -265,13 +261,14 @@ namespace FFXIV_TexTools.Views
                     var mapTask = GetMap(modsJson.FullPath);
 
                     var active = false;
-                    var isActiveTask = modding.IsModEnabled(modsJson.FullPath, false);
+                    var isActiveTask = _modding.IsModEnabled(modsJson.FullPath, false);
 
                     var taskList = new List<Task> {raceTask, numberTask, typeTask, mapTask, isActiveTask};
 
                     XivRace race = XivRace.All_Races;
                     string number = string.Empty, type = string.Empty, map = string.Empty;
                     XivModStatus isActive = XivModStatus.Disabled;
+                    string activeModPack = null;
 
                     while (taskList.Any())
                     {
@@ -300,7 +297,7 @@ namespace FFXIV_TexTools.Views
                         else if (finished == isActiveTask)
                         {
                             taskList.Remove(isActiveTask);
-                            isActive = await isActiveTask;
+                            (isActive, activeModPack) = await isActiveTask;
                         }
                     }
 
@@ -319,6 +316,7 @@ namespace FFXIV_TexTools.Views
                             Num = number,
                             Map = map,
                             Active = active,
+                            ActiveModPack = activeModPack,
                             JsonEntry = new ModsJson
                             {
                                 Name = modsJson.Name,
@@ -611,14 +609,11 @@ namespace FFXIV_TexTools.Views
 
             var importList = (from SimpleModPackEntries selectedItem in ModListView.SelectedItems select selectedItem.JsonEntry).ToList();
 
-            var modListDirectory = new DirectoryInfo(Path.Combine(_gameDirectory.Parent.Parent.FullName, XivStrings.ModlistFilePath));
-
             var progressIndicator = new Progress<(int current, int total, string message)>(ReportProgress);
 
             try
             {
-                var importResults = await _texToolsModPack.ImportModPackAsync(_modPackDirectory, importList,
-                    _gameDirectory, modListDirectory, progressIndicator);
+                var importResults = await _texToolsModPack.ImportModPackAsync(_modPackDirectory, importList, progressIndicator);
 
                 TotalModsImported = importResults.ImportCount;
 

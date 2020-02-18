@@ -50,18 +50,18 @@ namespace FFXIV_TexTools.Views
         private readonly ObservableCollection<SimpleModPackEntries> _simpleDataList = new ObservableCollection<SimpleModPackEntries>();
         private ListSortDirection _lastDirection = ListSortDirection.Ascending;
         private ProgressDialogController _progressController;
-        private readonly DirectoryInfo _gameDirectory;
         private int _modCount;
         private long _modSize;
+        private Modding _modding;
 
         [DllImport("Shlwapi.dll", CharSet = CharSet.Auto)]
         public static extern long StrFormatByteSize(long fileSize, [MarshalAs(UnmanagedType.LPTStr)] StringBuilder buffer, int bufferSize);
 
-        public SimpleModPackCreator()
+        public SimpleModPackCreator(Modding modding)
         {
             InitializeComponent();
 
-            _gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
+            _modding = modding;
             ModListView.ItemsSource = _simpleDataList;
 
             Initialize();
@@ -144,10 +144,8 @@ namespace FFXIV_TexTools.Views
         {
             var simpleListLock = new object();
             var progressLock = new object();
-            var modListDirectory = new DirectoryInfo(Path.Combine(_gameDirectory.Parent.Parent.FullName, XivStrings.ModlistFilePath));
-            var modding = new Modding(_gameDirectory);
 
-            var modList = JsonConvert.DeserializeObject<ModList>(File.ReadAllText(modListDirectory.FullName));
+            var modList = _modding.GetModList();
             var modNum = 0;
 
             return Task.Run(async () =>
@@ -170,13 +168,14 @@ namespace FFXIV_TexTools.Views
                     var mapTask = GetMap(mod.fullPath);
 
                     var active = false;
-                    var isActiveTask = modding.IsModEnabled(mod.fullPath, false);
+                    var isActiveTask = _modding.IsModEnabled(mod.fullPath, false);
 
                     var taskList = new List<Task> { raceTask, numberTask, typeTask, mapTask, isActiveTask };
 
                     var race = XivRace.All_Races;
                     string number = string.Empty, type = string.Empty, map = string.Empty;
                     var isActive = XivModStatus.Disabled;
+                    string activeModPack = null;
 
                     while (taskList.Any())
                     {
@@ -205,7 +204,7 @@ namespace FFXIV_TexTools.Views
                         else if (finished == isActiveTask)
                         {
                             taskList.Remove(isActiveTask);
-                            isActive = await isActiveTask;
+                            (isActive, activeModPack) = await isActiveTask;
                         }
                     }
 
@@ -223,6 +222,7 @@ namespace FFXIV_TexTools.Views
                         Num = number,
                         Map = map,
                         Active = active,
+                        ActiveModPack = activeModPack,
                         ModEntry = mod,
                     }));
                 }
@@ -576,7 +576,7 @@ namespace FFXIV_TexTools.Views
             _progressController = await this.ShowProgressAsync(UIMessages.ModPackCreationMessage, UIMessages.PleaseStandByMessage);
             ModPackFileName = ModPackName.Text;
 
-            var texToolsModPack = new TTMP(new DirectoryInfo(Properties.Settings.Default.ModPack_Directory), XivStrings.TexTools);
+            var texToolsModPack = _modding.NewModPack();
 
             var simpleModPackData = new SimpleModPackData
             {
@@ -604,7 +604,7 @@ namespace FFXIV_TexTools.Views
 
             var progressIndicator = new Progress<(int current, int total, string message)>(ReportProgress);
 
-            await texToolsModPack.CreateSimpleModPack(simpleModPackData, _gameDirectory, progressIndicator);
+            await texToolsModPack.CreateSimpleModPack(simpleModPackData, progressIndicator);
 
             await _progressController.CloseAsync();
 

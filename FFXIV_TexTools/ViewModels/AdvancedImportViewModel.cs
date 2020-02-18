@@ -36,6 +36,7 @@ using xivModdingFramework.Helpers;
 using xivModdingFramework.Items.Interfaces;
 using xivModdingFramework.Models.DataContainers;
 using xivModdingFramework.Models.FileTypes;
+using xivModdingFramework.Mods;
 using Path = System.IO.Path;
 
 namespace FFXIV_TexTools.ViewModels
@@ -59,12 +60,13 @@ namespace FFXIV_TexTools.ViewModels
         private Dictionary<string, string> _attributeDictionary, _shapeDictionary;
         private Dictionary<string, int> _attributeMaskDictionary;
         private Dictionary<int, List<int>> _daeMeshPartDictionary;
+        private readonly Modding _modding;
         private readonly AdvancedModelImportView _view;
         private Dictionary<string, ModelImportSettings> _importDictionary = new Dictionary<string, ModelImportSettings>();
         private int? _meshDiff;
         private XivMdl _modMdl;
 
-        public AdvancedImportViewModel(XivMdl xivMdl,XivMdl modMdl, IItemModel itemModel, XivRace selectedRace, AdvancedModelImportView view, bool fromWizard)
+        public AdvancedImportViewModel(Modding modding, XivMdl xivMdl,XivMdl modMdl, IItemModel itemModel, XivRace selectedRace, AdvancedModelImportView view, bool fromWizard)
         {
             var appStyle = ThemeManager.DetectAppStyle(System.Windows.Application.Current);
             if (appStyle.Item1.Name.Equals("BaseDark"))
@@ -72,13 +74,14 @@ namespace FFXIV_TexTools.ViewModels
                 _textColor = "White";
             }
 
+            _modding = modding;
             _view = view;
             _xivMdl = xivMdl;
             _lod = xivMdl.LoDList[0];
             _itemModel = itemModel;
             _selectedRace = selectedRace;
             _fromWizard = fromWizard;
-            _dae = new Dae(new DirectoryInfo(Settings.Default.FFXIV_Directory), itemModel.DataFile, Settings.Default.DAE_Plugin_Target);
+            _dae = new Dae(_modding, itemModel.DataFile, Settings.Default.DAE_Plugin_Target);
             _modMdl = modMdl;
             if (_modMdl != null) {
                 var oldMaterialPathSize = _xivMdl.PathData.MaterialList.Sum(it => it.Length) + _xivMdl.PathData.MaterialList.Count;
@@ -1163,7 +1166,7 @@ namespace FFXIV_TexTools.ViewModels
         {
             Dictionary<string, string> warnings;
 
-            var mdl = new Mdl(new DirectoryInfo(Settings.Default.FFXIV_Directory), _itemModel.DataFile);
+            var mdl = new Mdl(_modding, _itemModel.DataFile);
 
             try
             {
@@ -1203,7 +1206,7 @@ namespace FFXIV_TexTools.ViewModels
         {
             Dictionary<string, string> warnings;
 
-            var mdl = new Mdl(new DirectoryInfo(Settings.Default.FFXIV_Directory), _itemModel.DataFile);
+            var mdl = new Mdl(_modding, _itemModel.DataFile);
 
             try
             {

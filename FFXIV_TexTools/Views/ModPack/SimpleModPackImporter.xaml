@@ -81,6 +81,7 @@
                         <GridViewColumn Header="{Binding Source={x:Static resx:UIStrings.Num}}" DisplayMemberBinding="{Binding Num}"/>
                         <GridViewColumn Header="{Binding Source={x:Static resx:UIStrings.Part}}" DisplayMemberBinding="{Binding Part}"/>
                         <GridViewColumn Header="{Binding Source={x:Static resx:UIStrings.Active}}" DisplayMemberBinding="{Binding Active}"/>
+                        <GridViewColumn Header="Active ModPack" DisplayMemberBinding="{Binding ActiveModPack}"/>
                     </GridView>
                 </ListView.View>
             </ListView>

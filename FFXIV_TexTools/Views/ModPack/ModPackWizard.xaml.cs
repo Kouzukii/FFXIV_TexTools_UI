@@ -27,6 +27,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Forms;
 using Xceed.Wpf.Toolkit;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using xivModdingFramework.Mods.FileTypes;
 using Image = SixLabors.ImageSharp.Image;
@@ -38,10 +39,12 @@ namespace FFXIV_TexTools.Views
     /// </summary>
     public partial class ModPackWizard
     {
+        private readonly Modding _modding;
         private ProgressDialogController _progressController;
 
-        public ModPackWizard()
+        public ModPackWizard(Modding modding)
         {
+            _modding = modding;
             InitializeComponent();
             modPackWizard.CanSelectNextPage = false;
             modPackWizard.CanHelp = false;
@@ -132,7 +135,7 @@ namespace FFXIV_TexTools.Views
             {
                 var newPage = new WizardPage
                 {
-                    Content = new WizardModPackControl(),
+                    Content = new WizardModPackControl(_modding),
                     PageType = WizardPageType.Blank,
                     Background = null,
                     HeaderBackground = null
@@ -210,7 +213,7 @@ namespace FFXIV_TexTools.Views
             if (modPackData.ModPackPages.Count > 0)
             {
                 var progressIndicator = new Progress<double>(ReportProgress);
-                var texToolsModPack = new TTMP(new DirectoryInfo(Properties.Settings.Default.ModPack_Directory), XivStrings.TexTools);
+                var texToolsModPack = _modding.NewModPack();
                 await texToolsModPack.CreateWizardModPack(modPackData, progressIndicator);
 
                 ModPackFileName = $"{ModPackName.Text}";
@@ -261,7 +264,8 @@ namespace FFXIV_TexTools.Views
             {
                 return;
             }
-            var ttmp = new TTMP(new DirectoryInfo(Settings.Default.ModPack_Directory), XivStrings.TexTools);
+
+            var ttmp = _modding.NewModPack();
             var ttmpData = await ttmp.GetModPackJsonData(new DirectoryInfo(openFileDialog.FileName));
             if (!ttmpData.ModPackJson.TTMPVersion.Contains("w"))
             {
@@ -295,7 +299,7 @@ namespace FFXIV_TexTools.Views
                 var wizPage = new WizardPage();
                 wizPage.Background = null;
                 wizPage.HeaderBackground = null;
-                var wizModPackControl = new WizardModPackControl();
+                var wizModPackControl = new WizardModPackControl(_modding);
                 wizPage.Content = wizModPackControl;
                 wizPage.PageType = WizardPageType.Blank;
                 foreach (var groupJson in wizPageItemJson.ModGroups)
@@ -362,7 +366,7 @@ namespace FFXIV_TexTools.Views
             }
             modPackWizard.Items.Add(new WizardPage()
             {
-                Content = new WizardModPackControl(),
+                Content = new WizardModPackControl(_modding),
                 PageType = WizardPageType.Blank,
                 Background = null,
                 HeaderBackground = null

@@ -24,6 +24,7 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Forms;
 using System.Windows.Media.Imaging;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using UserControl = System.Windows.Controls.UserControl;
 
@@ -34,12 +35,14 @@ namespace FFXIV_TexTools.Views
     /// </summary>
     public partial class WizardModPackControl : UserControl
     {
+        private readonly Modding _modding;
         public List<ModGroup> ModGroupList { get; } = new List<ModGroup>();
         public List<string> ModGroupNames { get; } = new List<string>();
 
-        public WizardModPackControl()
+        public WizardModPackControl(Modding modding)
         {
             InitializeComponent();
+            _modding = modding;
 
             OptionsList.ItemsSource = new List<ModOption>();
         }
@@ -51,7 +54,7 @@ namespace FFXIV_TexTools.Views
         /// </summary>
         private void AddGroupButton_Click(object sender, RoutedEventArgs e)
         {
-            var wizardAddGroupWindow = new WizardAddGroupWindow(ModGroupNames) { Owner = Window.GetWindow(this) };
+            var wizardAddGroupWindow = new WizardAddGroupWindow(_modding ,ModGroupNames) { Owner = Window.GetWindow(this) };
 
             var result = wizardAddGroupWindow.ShowDialog();
 
@@ -111,7 +114,7 @@ namespace FFXIV_TexTools.Views
                 }
             }
 
-            var wizardAddGroupWindow = new WizardAddGroupWindow(ModGroupNames)
+            var wizardAddGroupWindow = new WizardAddGroupWindow(_modding, ModGroupNames)
             {
                 Owner = Window.GetWindow(this),
                 Title = UIStrings.Edit_Group

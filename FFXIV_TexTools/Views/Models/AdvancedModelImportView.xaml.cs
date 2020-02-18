@@ -18,6 +18,7 @@ using FFXIV_TexTools.ViewModels;
 using xivModdingFramework.General.Enums;
 using xivModdingFramework.Items.Interfaces;
 using xivModdingFramework.Models.DataContainers;
+using xivModdingFramework.Mods;
 
 namespace FFXIV_TexTools.Views.Models
 {
@@ -29,12 +30,12 @@ namespace FFXIV_TexTools.Views.Models
         private AdvancedImportViewModel _viewModel;
         private bool _fromWizard;
 
-        public AdvancedModelImportView(XivMdl xivMdl,XivMdl modMdl, IItemModel itemModel, XivRace selectedRace, bool fromWizard)
+        public AdvancedModelImportView(Modding modding, XivMdl xivMdl,XivMdl modMdl, IItemModel itemModel, XivRace selectedRace, bool fromWizard)
         {
             InitializeComponent();
 
             _fromWizard = fromWizard;
-            _viewModel = new AdvancedImportViewModel(xivMdl,modMdl, itemModel, selectedRace, this, fromWizard);
+            _viewModel = new AdvancedImportViewModel(modding, xivMdl,modMdl, itemModel, selectedRace, this, fromWizard);
             this.DataContext = _viewModel;
 
             if (fromWizard)

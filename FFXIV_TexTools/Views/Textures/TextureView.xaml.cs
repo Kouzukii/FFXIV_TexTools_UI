@@ -17,6 +17,7 @@
 using FFXIV_TexTools.ViewModels;
 using System.Windows;
 using System.Windows.Controls;
+using xivModdingFramework.Mods;
 
 namespace FFXIV_TexTools.Views
 {
@@ -28,8 +29,7 @@ namespace FFXIV_TexTools.Views
         public TextureView()
         {
             InitializeComponent();
-
-            this.DataContext = new TextureViewModel(this);
+            DataContext = new TextureViewModel(this, ((MainWindow) Application.Current.MainWindow).Modding);
         }
 
         /// <summary>

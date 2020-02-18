@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using xivModdingFramework.Items.Interfaces;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 using Image = SixLabors.ImageSharp.Image;
 
@@ -19,9 +20,9 @@ namespace FFXIV_TexTools.Views
     public partial class ModConverterView
     {
         ProgressDialogController _progressController;
-        public ModConverterView(List<IItem> itemList,string ttmpPath, (ModPackJson ModPackJson, Dictionary<string, Image> ImageDictionary) ttmpData)
+        public ModConverterView(Modding modding, List<IItem> itemList, string ttmpPath, (ModPackJson ModPackJson, Dictionary<string, Image> ImageDictionary) ttmpData)
         {
-            var vm = new ModConverterViewModel(ttmpData);
+            var vm = new ModConverterViewModel(modding, ttmpData);
             vm.ItemList = itemList;
             vm.TTMPPath = ttmpPath;
             vm.GetNewModPackPath = () => {

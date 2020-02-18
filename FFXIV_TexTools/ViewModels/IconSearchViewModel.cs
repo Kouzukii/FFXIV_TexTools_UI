@@ -24,6 +24,7 @@ using System.Windows.Input;
 using xivModdingFramework.General.Enums;
 using xivModdingFramework.Helpers;
 using xivModdingFramework.Items.DataContainers;
+using xivModdingFramework.Mods;
 using xivModdingFramework.SqPack.FileTypes;
 
 namespace FFXIV_TexTools.ViewModels
@@ -32,10 +33,12 @@ namespace FFXIV_TexTools.ViewModels
     {
         private string _iconText, _iconStatusLabel;
         private readonly MainWindow _mainView;
+        private readonly Modding _modding;
 
-        public IconSearchViewModel(MainWindow mainView)
+        public IconSearchViewModel(MainWindow mainView, Modding modding) 
         {
             _mainView = mainView;
+            _modding = modding;
         }
 
         /// <summary>
@@ -121,13 +124,11 @@ namespace FFXIV_TexTools.ViewModels
 
             if (iconInt > -1)
             {
-                var index = new Index(new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory));
-
                 var iconFileString = $"{IconText.PadLeft(6, '0')}.tex";
                 var iconFolderInt = (iconInt / 1000) * 1000;
                 var iconFolderString = $"ui/icon/{iconFolderInt.ToString().PadLeft(6, '0')}";
 
-                if (await index.FileExists(HashGenerator.GetHash(iconFileString), HashGenerator.GetHash(iconFolderString), XivDataFile._06_Ui))
+                if (await _modding.Index.FileExists(HashGenerator.GetHash(iconFileString), HashGenerator.GetHash(iconFolderString), XivDataFile._06_Ui))
                 {
                     var textureView = _mainView.TextureTabItem.Content as TextureView;
                     var textureViewModel = textureView.DataContext as TextureViewModel;
@@ -148,7 +149,7 @@ namespace FFXIV_TexTools.ViewModels
                 else
                 {
                     var iconLangFolderString = $"ui/icon/{iconFolderInt.ToString().PadLeft(6, '0')}/en";
-                    if (await index.FileExists(HashGenerator.GetHash(iconFileString), HashGenerator.GetHash(iconLangFolderString),
+                    if (await _modding.Index.FileExists(HashGenerator.GetHash(iconFileString), HashGenerator.GetHash(iconLangFolderString),
                         XivDataFile._06_Ui))
                     {
                         var textureView = _mainView.TextureTabItem.Content as TextureView;

@@ -28,6 +28,7 @@ using xivModdingFramework.General.Enums;
 using xivModdingFramework.Items.Categories;
 using xivModdingFramework.Items.DataContainers;
 using xivModdingFramework.Items.Enums;
+using xivModdingFramework.Mods;
 
 namespace FFXIV_TexTools.ViewModels
 {
@@ -39,10 +40,11 @@ namespace FFXIV_TexTools.ViewModels
         private List<SearchResults> _resultList;
         private SearchResults _searchResult;
         private readonly MainWindow _mainView;
+        private readonly Modding _modding;
 
-        public ModelSearchViewModel(MainWindow mw)
-        {
+        public ModelSearchViewModel(MainWindow mw, Modding modding) {
             _mainView = mw;
+            _modding = modding;
         }
 
         public List<string> SearchCategories => SearchCategoriesList;
@@ -162,27 +164,25 @@ namespace FFXIV_TexTools.ViewModels
                 return;
             }
 
-            var gameDirectory = new DirectoryInfo(Properties.Settings.Default.FFXIV_Directory);
-
             if (SelectedCategory.Equals(XivStrings.Equipment) || SelectedCategory.Equals(XivStrings.Accessory) ||
                 SelectedCategory.Equals(XivStrings.Weapon))
             {
-                var gear = new Gear(gameDirectory, GetLanguage());
+                var gear = new Gear(_modding, GetLanguage());
                 ResultList = await gear.SearchGearByModelID(id, SelectedCategory);
             }
             else if (SelectedCategory.Equals(XivStrings.Monster))
             {
-                var companion = new Companions(gameDirectory, GetLanguage());
+                var companion = new Companions(_modding, GetLanguage());
                 ResultList = await companion.SearchMonstersByModelID(id, XivItemType.monster);
             }
             else if (SelectedCategory.Equals(XivStrings.DemiHuman))
             {
-                var demiH = new Companions(gameDirectory, GetLanguage());
+                var demiH = new Companions(_modding, GetLanguage());
                 ResultList = await demiH.SearchMonstersByModelID(id, XivItemType.demihuman);
             }
             else if (SelectedCategory.Equals(XivStrings.Furniture))
             {
-                var furniture = new Housing(gameDirectory, GetLanguage());
+                var furniture = new Housing(_modding, GetLanguage());
                 ResultList = await furniture.SearchHousingByModelID(id, XivItemType.furniture);
             }
 

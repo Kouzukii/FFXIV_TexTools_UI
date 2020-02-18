@@ -18,16 +18,14 @@ using xivModdingFramework.Helpers;
 using xivModdingFramework.Items.Categories;
 using xivModdingFramework.Items.DataContainers;
 using xivModdingFramework.Items.Interfaces;
+using xivModdingFramework.Mods;
 using xivModdingFramework.Mods.DataContainers;
 
 namespace FFXIV_TexTools.ViewModels
 {
     class ModConverterViewModel
     {
-        public ModConverterViewModel((ModPackJson ModPackJson, Dictionary<string, Image> ImageDictionary) data) {
-            this.TTMPData = data;
-            LoadFromItemList();
-        }
+        private readonly Modding _modding;
         public List<string> ItemTextList { get; set; }
         public List<IItem> ItemList { get; set; }
         public ObservableCollection<string> FromItemList { get; private set; } = new ObservableCollection<string>();
@@ -47,6 +45,13 @@ namespace FFXIV_TexTools.ViewModels
         Dictionary<string, string> _convertDic = new Dictionary<string, string>();
         public (ModPackJson ModPackJson, Dictionary<string, Image> ImageDictionary) TTMPData { get; private set; }
         public event PropertyChangedEventHandler PropertyChanged;
+
+        public ModConverterViewModel(Modding modding, (ModPackJson ModPackJson, Dictionary<string, Image> ImageDictionary) data)
+        {
+            _modding = modding;
+            this.TTMPData = data;
+            LoadFromItemList();
+        }
 
         protected virtual void NotifyPropertyChanged(string propertyName)
         {
@@ -180,7 +185,7 @@ namespace FFXIV_TexTools.ViewModels
                 return;
             await this.ShowProgress();
             var modDataList = await GetModData(TTMPPath,TTMPData.ModPackJson);
-            var gear = new Gear(new DirectoryInfo(Settings.Default.FFXIV_Directory), GetLanguage());
+            var gear = new Gear(_modding, GetLanguage());
 
             foreach (var item in _convertDic)
             {
